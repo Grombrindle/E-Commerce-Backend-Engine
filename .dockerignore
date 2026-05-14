@@ -1,0 +1,17 @@
+.env
+.git
+.gitignore
+vendor
+node_modules
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+docker-compose.yml
+Dockerfile
+.dockerignore
+README.md
+parallel_programming_tasks_1_to_5.md

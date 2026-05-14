@@ -1,0 +1,154 @@
+# ═══════════════════════════════════════════════════════════════════════
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║  BEFORE — Task 5: Single Unscaled Service (The Problem)            ║
+# ╚══════════════════════════════════════════════════════════════════════╝
+#
+# Originally there was ONE app service with NO load balancing.
+# All requests hit a single PHP-FPM server running on one port.
+# No Nginx proxy, no Redis, no horizontal scaling.
+#
+#          Bad docker-compose (single instance, no LB):
+#
+#          services:
+#            app:
+#              build: .
+#              ports:
+#                - "8000:8000"       # ⚠ Direct exposure, no Nginx
+#              # ⚠ Only ONE container — no redundancy
+#              # ⚠ No Redis — queue runs sync (QUEUE_CONNECTION=sync)
+#              # ⚠ No load balancer — single point of failure
+#
+# What went wrong:
+#  - Single app instance → max throughput capped
+#  - No Nginx → no rate limiting, no caching, no SSL
+#  - No Redis → no async queues, semaphores not possible
+#  - No scale → cannot handle traffic spikes
+#
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║  AFTER — Task 5: Multi-Instance with Nginx + Redis (Fix)           ║
+# ╚══════════════════════════════════════════════════════════════════════╝
+#
+#          ✅ 3 app instances with weighted round-robin
+#          ✅ Nginx front-end for load balancing + rate limiting
+#          ✅ Redis for async queues, semaphores, caching
+#          ✅ Fault tolerance — if app2 dies, app1+app3 still serve
+#
+# To test the "before" setup:
+#   1. Comment out all app1/app2/app3 + nginx + redis services
+#   2. Add a single 'app:' service exposing port 8000 directly
+#   3. docker compose up — single instance, no LB, no queues
+#   4. Stop it — site goes completely down
+#   5. Restore the full setup — 3 instances survive failures
+# ═══════════════════════════════════════════════════════════════════════
+
+# ────────────────────────────────────────────────────────
+# Docker Compose — E-Commerce API with Load Balancing
+# ────────────────────────────────────────────────────────
+#
+# Architecture (AFTER — Task 5):
+#   Nginx (load balancer) → 3 Laravel app instances → Redis (queue/semaphore)
+#                                                       └── SQLite (database)
+#
+# Usage:
+#   docker compose up -d              # Start everything (3 app instances)
+#   docker compose logs -f            # Watch all logs
+#   docker compose down               # Stop everything
+#
+# To simulate the BEFORE (single server), uncomment the minimal app service
+# below and comment out the multi-instance setup.
+
+services:
+
+  # ── Redis (Queue + Cache + Semaphore) ────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Laravel App Instance 1 (weight=3 — 50% traffic) ──
+  app1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecommerce-api:latest
+    container_name: ecommerce-app-1
+    hostname: app1
+    environment: &app_env
+      APP_ENV: "${APP_ENV:-production}"
+      APP_DEBUG: "${APP_DEBUG:-false}"
+      APP_KEY: "${APP_KEY:-base64:U2FtcGxlS2V5Rm9yRGV2ZWxvcG1lbnQ=}"
+      APP_URL: "${APP_URL:-http://localhost}"
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /var/www/app/database/database.sqlite
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      LOG_CHANNEL: stack
+      LOG_LEVEL: "${LOG_LEVEL:-warning}"
+    volumes: &app_volumes
+      - sqlite_data:/var/www/app/database
+      - storage_data:/var/www/app/storage
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Laravel App Instance 2 (weight=2 — 33% traffic) ──
+  app2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecommerce-api:latest
+    container_name: ecommerce-app-2
+    hostname: app2
+    environment: *app_env
+    volumes: *app_volumes
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Laravel App Instance 3 (weight=1 — 17% traffic) ──
+  app3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecommerce-api:latest
+    container_name: ecommerce-app-3
+    hostname: app3
+    environment: *app_env
+    volumes: *app_volumes
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Nginx Load Balancer ──────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: ecommerce-nginx
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    volumes:
+      - ./deploy/nginx/load-balancer.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app1
+      - app2
+      - app3
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  sqlite_data:
+  storage_data:

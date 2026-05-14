@@ -1,7 +1,61 @@
 <?php
 
+/* ============================================================
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║  BEFORE — Task 1: Race Condition (The Problem)              ║
+ * ╚══════════════════════════════════════════════════════════════╝
+ *
+ * The original code had NO LOCK between checking stock and
+ * decrementing it. This allowed two concurrent users to both
+ * see stock=1, both pass the check, and both decrement —
+ * resulting in stock = -1 (oversell).
+ *
+ *          Bad code (no lock):
+ *
+ *          public function decrementStock(int $productId, int $quantity): void
+ *          {
+ *              $inventory = Inventory::where('product_id', $productId)->first();
+ *
+ *              // ⚠ NO LOCK: User A and User B both read stock=1 simultaneously!
+ *              $available = $inventory->quantity - $inventory->reserved_quantity;
+ *
+ *              // ⚠ Both pass this check because both saw the same value
+ *              if ($available < $quantity) {
+ *                  throw new RuntimeException('Insufficient stock');
+ *              }
+ *
+ *              // ⚠ NO TRANSACTION: Each decrement runs separately
+ *              // User A sets quantity = 0
+ *              // User B sets quantity = -1 (OVERSELL!)
+ *              $inventory->quantity -= $quantity;
+ *              $inventory->save();
+ *          }
+ *
+ * What went wrong:
+ *  - No lockForUpdate() → concurrent reads see stale stock
+ *  - No DB::transaction() → partial failures leave data inconsistent
+ *  - PHP arithmetic instead of atomic DB decrement → race window
+ *  - Result: 2 orders placed for 1 remaining item, stock = -1
+ *
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║  AFTER — Task 1: Pessimistic Locking (The Fix)               ║
+ * ╚══════════════════════════════════════════════════════════════╝
+ *
+ *          ✅ lockForUpdate() issues: SELECT ... FOR UPDATE
+ *          ✅ Blocks other transactions from reading this row
+ *          ✅ Only ONE thread can hold this lock at a time
+ *          ✅ decrement() is a single atomic SQL UPDATE
+ *
+ * To test both versions:
+ *   1. Comment out the AFTER code below
+ *   2. Uncomment the BEFORE code above
+ *   3. Fire 10 concurrent order requests — see stock go negative
+ *   4. Restore the AFTER code — see stock stay >= 0
+ * ============================================================ */
+
 namespace App\Services;
 
+use App\Exceptions\InsufficientStockException;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Events\StockLow;
@@ -31,7 +85,7 @@ class InventoryService
         $available = $inventory->quantity - $inventory->reserved_quantity;
 
         if ($available < $quantity) {
-            throw new \RuntimeException(
+            throw new InsufficientStockException(
                 "Insufficient stock for product #{$productId}. Available: {$available}, Requested: {$quantity}."
             );
         }

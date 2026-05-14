@@ -12,6 +12,12 @@ class ProductTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        \Illuminate\Support\Facades\Cache::flush();
+    }
+
     private function createProduct(array $override = []): Product
     {
         $cat  = Category::factory()->create(['is_active' => true]);

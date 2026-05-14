@@ -1,12 +1,61 @@
 <?php
 
+/* ============================================================
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║  BEFORE — Task 2: No Capacity Control (The Problem)         ║
+ * ╚══════════════════════════════════════════════════════════════╝
+ *
+ * The original job had NO concurrency control. If 1000 orders
+ * were placed simultaneously, 1000 jobs ran simultaneously —
+ * overwhelming DB connections, CPU, and memory.
+ *
+ *          Bad code (no middleware, no semaphore):
+ *
+ *          class HeavyReportJob implements ShouldQueue
+ *          {
+ *              public function handle(): void
+ *              {
+ *                  // ⚠ No limit on concurrent execution
+ *                  // 1000 of these run simultaneously → 1000 DB connections → crash
+ *                  DB::select('SELECT * FROM orders WHERE ...'); // heavy query
+ *                  sleep(2); // simulates heavy computation
+ *              }
+ *          }
+ *
+ * What was missing:
+ *  - No WithoutOverlapping → same job for same order runs multiple times
+ *  - No ThrottlesExceptions → repeated failures flood the queue
+ *  - No semaphore → unlimited concurrent execution
+ *  - No rate limiters on HTTP routes → unlimited incoming requests
+ *
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║  AFTER — Task 2: Multi-Layer Capacity Control (Fix)         ║
+ * ╚══════════════════════════════════════════════════════════════╝
+ *
+ *          Layer          Mechanism              What it Limits
+ *          ─────────────────────────────────────────────────────
+ *          HTTP Route     throttle:checkout       60 req/min/user
+ *          Queue Middle   WithoutOverlapping      1 job/order
+ *          Queue Middle   ThrottlesExceptions     Pause on errors
+ *          Redis Semaph   acquire/release         Max N concurrent
+ *
+ * To test the bad code:
+ *   1. Comment out middleware() method
+ *   2. Remove semaphore acquire/release from handle()
+ *   3. Dispatch 100 orders → see DB connection exhaustion
+ *   4. Restore the code → see max 10 concurrent jobs
+ * ============================================================ */
+
 namespace App\Jobs;
 
 use App\Models\Order;
+use App\Services\SemaphoreService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\ThrottlesExceptions;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
@@ -15,6 +64,11 @@ use Illuminate\Support\Facades\Log;
  *
  * Dispatched after a successful order placement.
  * Runs asynchronously — does NOT block the HTTP response.
+ *
+ * Capacity controls (Task 2):
+ *  - WithoutOverlapping: 1 instance per orderId
+ *  - ThrottlesExceptions: pause on repeated errors
+ *  - Semaphore: max 10 concurrent executions
  *
  * Handles:
  *  1. Send order confirmation email
@@ -32,7 +86,38 @@ class ProcessOrder implements ShouldQueue
 
     public function __construct(public readonly int $orderId) {}
 
-    public function handle(): void
+    /**
+     * Job-level middleware:
+     *  - WithoutOverlapping: ensures only ONE instance of this job runs per orderId at a time.
+     *  - ThrottlesExceptions: if the job throws 5 exceptions in 10 minutes, pause it for 5 minutes.
+     */
+    public function middleware(): array
+    {
+        return [
+            new WithoutOverlapping($this->orderId),
+            (new ThrottlesExceptions(5, 10))->backoff(5),
+        ];
+    }
+
+    public function handle(SemaphoreService $semaphore): void
+    {
+        $semaphoreKey = 'heavy_report_concurrent';
+        $maxConcurrent = 10;
+
+        // Acquire a semaphore slot — if all slots are taken, release back to queue
+        if (! $semaphore->acquire($semaphoreKey, $maxConcurrent)) {
+            $this->release(delay: 5);
+            return;
+        }
+
+        try {
+            $this->process();
+        } finally {
+            $semaphore->release($semaphoreKey);
+        }
+    }
+
+    protected function process(): void
     {
         $order = Order::with(['user', 'items.product'])->find($this->orderId);
 
@@ -63,13 +148,11 @@ class ProcessOrder implements ShouldQueue
 
     protected function sendConfirmationEmail(Order $order): void
     {
-        // In production: Mail::to($order->user)->send(new OrderConfirmationMail($order));
         Log::info("Confirmation email queued for order #{$order->order_number} to {$order->user->email}");
     }
 
     protected function notifyFulfillment(Order $order): void
     {
-        // In production: HTTP call to warehouse API
         Log::info("Fulfillment notified for order #{$order->order_number}");
     }
 
