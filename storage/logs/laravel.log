@@ -784,3 +784,35 @@ Stack trace:
 [2026-05-18 07:12:25] testing.INFO: Order placed event fired for #ORD-0BCA367E-20260518  
 [2026-05-18 07:12:25] testing.INFO: Order placed event fired for #ORD-6B549A09-20260518  
 [2026-05-18 07:12:25] testing.INFO: Order placed event fired for #ORD-6B549A09-20260518  
+[2026-05-18 11:53:05] local.ERROR: Uncaught Symfony\Component\Finder\Exception\DirectoryNotFoundException: The "/home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/resources/views" directory does not exist. in /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648
+Stack trace:
+#0 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php(588): Symfony\Component\Finder\Finder->in()
+#1 Command line code(45): Illuminate\Filesystem\Filesystem->files()
+#2 Command line code(71): getViews()
+#3 {main}
+  thrown {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Uncaught Symfony\\Component\\Finder\\Exception\\DirectoryNotFoundException: The \"/home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/resources/views\" directory does not exist. in /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648
+Stack trace:
+#0 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php(588): Symfony\\Component\\Finder\\Finder->in()
+#1 Command line code(45): Illuminate\\Filesystem\\Filesystem->files()
+#2 Command line code(71): getViews()
+#3 {main}
+  thrown at /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648)
+[stacktrace]
+#0 {main}
+"} 
+[2026-05-18 12:10:10] local.ERROR: Uncaught Symfony\Component\Finder\Exception\DirectoryNotFoundException: The "/home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/resources/views" directory does not exist. in /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648
+Stack trace:
+#0 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php(588): Symfony\Component\Finder\Finder->in()
+#1 Command line code(45): Illuminate\Filesystem\Filesystem->files()
+#2 Command line code(71): getViews()
+#3 {main}
+  thrown {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Uncaught Symfony\\Component\\Finder\\Exception\\DirectoryNotFoundException: The \"/home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/resources/views\" directory does not exist. in /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648
+Stack trace:
+#0 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php(588): Symfony\\Component\\Finder\\Finder->in()
+#1 Command line code(45): Illuminate\\Filesystem\\Filesystem->files()
+#2 Command line code(71): getViews()
+#3 {main}
+  thrown at /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648)
+[stacktrace]
+#0 {main}
+"} 
