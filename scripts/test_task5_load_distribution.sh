@@ -70,34 +70,51 @@ echo ""
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
+# Get container IPs to map X-Upstream (IP:port) to container names
+# The X-Upstream header contains IP:port (e.g., "172.24.0.4:8000")
+# We need to know which IP belongs to which container
+step "Determining container IPs for upstream mapping..."
+APP1_IP=$(docker container inspect ecommerce-app-1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "")
+APP2_IP=$(docker container inspect ecommerce-app-2 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "")
+APP3_IP=$(docker container inspect ecommerce-app-3 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo "")
+
+echo -e "    app1 IP: ${APP1_IP:-unknown}"
+echo -e "    app2 IP: ${APP2_IP:-unknown}"
+echo -e "    app3 IP: ${APP3_IP:-unknown}"
+ok "Container IPs mapped."
+echo ""
+
 # Fire 60 requests and capture upstream info
 for i in $(seq 1 60); do
     RESPONSE=$(curl -s -I "${API_BASE}/health" --connect-timeout 3 2>/dev/null | grep -i "x-upstream" || echo "x-upstream: UNKNOWN")
     echo "$RESPONSE" >> "$TMPDIR/upstreams.txt"
 done
 
-# Count distribution
+# Count distribution by IP match
 APP1_COUNT=0
 APP2_COUNT=0
 APP3_COUNT=0
 UNKNOWN_COUNT=0
 
 while IFS= read -r line; do
-    case "$line" in
-        *app1*)
+    # Extract the IP from "x-upstream: IP:PORT" format
+    UPSTREAM_IP=$(echo "$line" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+
+    if [ -n "$UPSTREAM_IP" ]; then
+        if [ "$UPSTREAM_IP" = "${APP1_IP:-}" ] && [ -n "$APP1_IP" ]; then
             APP1_COUNT=$((APP1_COUNT + 1))
-            ;;
-        *app2*)
+        elif [ "$UPSTREAM_IP" = "${APP2_IP:-}" ] && [ -n "$APP2_IP" ]; then
             APP2_COUNT=$((APP2_COUNT + 1))
-            ;;
-        *app3*)
+        elif [ "$UPSTREAM_IP" = "${APP3_IP:-}" ] && [ -n "$APP3_IP" ]; then
             APP3_COUNT=$((APP3_COUNT + 1))
-            ;;
-        *)
+        else
             UNKNOWN_COUNT=$((UNKNOWN_COUNT + 1))
-            echo -e "    ${YELLOW}Unexpected:${NC} ${line}"
-            ;;
-    esac
+            echo -e "    ${YELLOW}Unexpected IP:${NC} ${UPSTREAM_IP} (from: ${line:0:60})"
+        fi
+    else
+        UNKNOWN_COUNT=$((UNKNOWN_COUNT + 1))
+        echo -e "    ${YELLOW}No IP found in:${NC} ${line:0:80}"
+    fi
 done < "$TMPDIR/upstreams.txt"
 
 TOTAL=$((APP1_COUNT + APP2_COUNT + APP3_COUNT + UNKNOWN_COUNT))
@@ -116,8 +133,8 @@ if [ "$UNKNOWN_COUNT" -gt 0 ]; then
     warn "${UNKNOWN_COUNT} requests went to unknown upstream."
 fi
 
-if [ "$TOTAL" -eq 60 ]; then
-    ok "All 60 requests routed through Nginx."
+if [ "$TOTAL" -ge 60 ]; then
+    ok "All 60+ requests routed through Nginx."
 
     # Check rough distribution (should be ~50%, ~33%, ~17%)
     if [ "$APP1_COUNT" -ge "$APP2_COUNT" ] && [ "$APP2_COUNT" -ge "$APP3_COUNT" ]; then
@@ -181,14 +198,23 @@ else
     warn "Check Nginx logs: docker_compose logs nginx"
 fi
 
-# Also check that app2 is NOT in the upstream responses
+# Also check that app2 is NOT in the upstream responses (by IP)
 step "Verifying app2 is no longer receiving traffic..."
-APP2_AFTER_KILL=$(grep -c "app2" "$TMPDIR/upstreams.txt")
-if [ "$APP2_AFTER_KILL" -gt 0 ]; then
-    APP2_IN_FAILOVER=$(curl -s -I "${API_BASE}/health" 2>/dev/null | grep -c "app2" || true)
-    if [ "$APP2_IN_FAILOVER" -eq 0 ]; then
-        ok "app2 is no longer receiving traffic — Nginx correctly removed it from the pool."
+APP2_AFTER_FAILOVER=0
+if [ -n "${APP2_IP:-}" ]; then
+    for i in $(seq 1 10); do
+        UPSTREAM=$(curl -s -I "${API_BASE}/health" --connect-timeout 3 2>/dev/null | grep -i "x-upstream" || echo "")
+        if echo "$UPSTREAM" | grep -q "$APP2_IP"; then
+            APP2_AFTER_FAILOVER=$((APP2_AFTER_FAILOVER + 1))
+        fi
+    done
+    if [ "$APP2_AFTER_FAILOVER" -eq 0 ]; then
+        ok "app2 (${APP2_IP}) no longer receiving traffic — Nginx correctly removed it from the pool."
+    else
+        warn "app2 still received ${APP2_AFTER_FAILOVER}/10 requests after being stopped."
     fi
+else
+    warn "Cannot verify app2 absence — IP was unknown."
 fi
 
 # ── 5. Fault Recovery Test ──────────────────────────────────────────
@@ -203,24 +229,28 @@ echo -e "    ${START_RESULT}"
 step "Waiting for app2 to become healthy (10s)..."
 sleep 10
 
-# Check if app2 is back in service
+# Check if app2 is back in service (by IP)
 step "Verifying app2 rejoined the pool..."
 APP2_BACK_COUNT=0
 
-for i in $(seq 1 20); do
-    UPSTREAM=$(curl -s -I "${API_BASE}/health" --connect-timeout 3 2>/dev/null | grep -i "x-upstream" || echo "")
-    if echo "$UPSTREAM" | grep -q "app2"; then
-        APP2_BACK_COUNT=$((APP2_BACK_COUNT + 1))
-    fi
-done
+if [ -n "${APP2_IP:-}" ]; then
+    for i in $(seq 1 20); do
+        UPSTREAM=$(curl -s -I "${API_BASE}/health" --connect-timeout 3 2>/dev/null | grep -i "x-upstream" || echo "")
+        if echo "$UPSTREAM" | grep -q "$APP2_IP"; then
+            APP2_BACK_COUNT=$((APP2_BACK_COUNT + 1))
+        fi
+    done
 
-if [ "$APP2_BACK_COUNT" -gt 0 ]; then
-    ok "✅ app2 rejoined the pool (seen in ${APP2_BACK_COUNT}/20 requests)!"
-    ok "Fault recovery works — Nginx automatically reintegrated the restarted server."
+    if [ "$APP2_BACK_COUNT" -gt 0 ]; then
+        ok "✅ app2 (${APP2_IP}) rejoined the pool (seen in ${APP2_BACK_COUNT}/20 requests)!"
+        ok "Fault recovery works — Nginx automatically reintegrated the restarted server."
+    else
+        warn "app2 (${APP2_IP}) didn't appear in upstream responses after restart."
+        warn "Check container status: docker_compose ps app2"
+        warn "Nginx fail_timeout=30s — it may need more time to recover."
+    fi
 else
-    warn "app2 didn't appear in ${APP2_BACK_COUNT}/20 upstream responses."
-    warn "Check container status: docker_compose ps app2"
-    warn "Nginx fail_timeout=30s — it may need more time to recover."
+    warn "Cannot verify app2 recovery — IP was unknown."
 fi
 
 # ── 6. Final Health Verification ─────────────────────────────────────
