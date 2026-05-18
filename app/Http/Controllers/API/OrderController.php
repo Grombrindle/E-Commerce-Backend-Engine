@@ -51,11 +51,6 @@
  *          ✅ Task 2: Route has 'throttle:orders' middleware (10 req/min/user)
  *          ✅ Task 3: OrderService dispatches async jobs after commit
  *             (GenerateInvoiceJob, SendOrderNotificationsJob, RecordSaleAnalyticsJob)
- *
- * To test each bad version:
- *   1. Task 1: Replace call with direct Product::find() logic (no lock)
- *   2. Task 2: Remove throttle middleware from route
- *   3. Task 3: Call sync services directly instead of dispatching jobs
  * ============================================================ */
 
 namespace App\Http\Controllers\API;
@@ -64,6 +59,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Order\PlaceOrderRequest;
 use App\Services\OrderService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * OrderController — Authenticated order management.
@@ -75,7 +71,9 @@ use Illuminate\Http\Request;
  */
 class OrderController extends Controller
 {
-    public function __construct(protected OrderService $orderService) {}
+    public function __construct(protected OrderService $orderService)
+    {
+    }
 
     /** List user's orders (paginated). */
     public function index(Request $request)
@@ -92,6 +90,10 @@ class OrderController extends Controller
     {
         try {
             $order = $this->orderService->placeOrder($request->user(), $request->validated());
+
+            // Invalidate product caches because inventory has changed
+            Cache::tags(['products'])->flush();
+
             return $this->created($order, 'Order placed successfully.');
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), 422);
@@ -120,6 +122,10 @@ class OrderController extends Controller
                 $id,
                 $request->reason ?? ''
             );
+
+            // Cancellation may restore stock → clear product caches
+            Cache::tags(['products'])->flush();
+
             return $this->success($order, 'Order cancelled.');
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), 422);

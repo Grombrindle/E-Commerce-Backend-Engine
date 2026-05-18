@@ -7,6 +7,7 @@ use App\Http\Requests\Cart\AddToCartRequest;
 use App\Http\Requests\Cart\UpdateCartItemRequest;
 use App\Services\CartService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * CartController — Authenticated cart management.
@@ -20,7 +21,9 @@ use Illuminate\Http\Request;
  */
 class CartController extends Controller
 {
-    public function __construct(protected CartService $cartService) {}
+    public function __construct(protected CartService $cartService)
+    {
+    }
 
     /** Get cart contents. */
     public function index(Request $request)
@@ -38,6 +41,10 @@ class CartController extends Controller
                 $request->product_id,
                 $request->quantity
             );
+
+            // Inventory reservation changed → flush product caches
+            Cache::tags(['products'])->flush();
+
             return $this->created($item->load('product'), 'Item added to cart.');
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), 422);
@@ -49,6 +56,10 @@ class CartController extends Controller
     {
         try {
             $item = $this->cartService->updateItem($request->user(), $id, $request->quantity);
+
+            // Quantity change affects reservation → flush product caches
+            Cache::tags(['products'])->flush();
+
             return $this->success($item, 'Cart updated.');
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), 422);
@@ -59,6 +70,10 @@ class CartController extends Controller
     public function removeItem(Request $request, int $id)
     {
         $this->cartService->removeItem($request->user(), $id);
+
+        // Reservation released → flush product caches
+        Cache::tags(['products'])->flush();
+
         return $this->success(null, 'Item removed from cart.');
     }
 
@@ -66,6 +81,10 @@ class CartController extends Controller
     public function clear(Request $request)
     {
         $this->cartService->clearCart($request->user());
+
+        // All reservations released → flush product caches
+        Cache::tags(['products'])->flush();
+
         return $this->success(null, 'Cart cleared.');
     }
 
@@ -74,16 +93,16 @@ class CartController extends Controller
     {
         $data = $this->cartService->getCart($request->user());
 
-        $subtotal    = $data['subtotal'] ?? 0;
-        $tax         = round($subtotal * 0.15, 2);
+        $subtotal = $data['subtotal'] ?? 0;
+        $tax = round($subtotal * 0.15, 2);
         $shippingFee = $subtotal >= 100 ? 0 : 9.99;
 
         return $this->success([
-            'item_count'  => $data['item_count'] ?? 0,
-            'subtotal'    => $subtotal,
-            'tax'         => $tax,
-            'shipping_fee'=> $shippingFee,
-            'total'       => $subtotal + $tax + $shippingFee,
+            'item_count' => $data['item_count'] ?? 0,
+            'subtotal' => $subtotal,
+            'tax' => $tax,
+            'shipping_fee' => $shippingFee,
+            'total' => $subtotal + $tax + $shippingFee,
         ]);
     }
 }

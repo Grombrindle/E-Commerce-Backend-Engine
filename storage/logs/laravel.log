@@ -630,3 +630,157 @@ Stack trace:
 [stacktrace]
 #0 {main}
 "} 
+[2026-05-16 07:25:42] local.ERROR: Uncaught Symfony\Component\Finder\Exception\DirectoryNotFoundException: The "/home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/resources/views" directory does not exist. in /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648
+Stack trace:
+#0 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php(588): Symfony\Component\Finder\Finder->in()
+#1 Command line code(45): Illuminate\Filesystem\Filesystem->files()
+#2 Command line code(71): getViews()
+#3 {main}
+  thrown {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Uncaught Symfony\\Component\\Finder\\Exception\\DirectoryNotFoundException: The \"/home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/resources/views\" directory does not exist. in /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648
+Stack trace:
+#0 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php(588): Symfony\\Component\\Finder\\Finder->in()
+#1 Command line code(45): Illuminate\\Filesystem\\Filesystem->files()
+#2 Command line code(71): getViews()
+#3 {main}
+  thrown at /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648)
+[stacktrace]
+#0 {main}
+"} 
+[2026-05-18 05:23:12] local.ERROR: Uncaught Symfony\Component\Finder\Exception\DirectoryNotFoundException: The "/home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/resources/views" directory does not exist. in /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648
+Stack trace:
+#0 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php(588): Symfony\Component\Finder\Finder->in()
+#1 Command line code(45): Illuminate\Filesystem\Filesystem->files()
+#2 Command line code(71): getViews()
+#3 {main}
+  thrown {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Uncaught Symfony\\Component\\Finder\\Exception\\DirectoryNotFoundException: The \"/home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/resources/views\" directory does not exist. in /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648
+Stack trace:
+#0 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Filesystem/Filesystem.php(588): Symfony\\Component\\Finder\\Finder->in()
+#1 Command line code(45): Illuminate\\Filesystem\\Filesystem->files()
+#2 Command line code(71): getViews()
+#3 {main}
+  thrown at /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/finder/Finder.php:648)
+[stacktrace]
+#0 {main}
+"} 
+[2026-05-18 05:26:08] local.ERROR: SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: users.email (Connection: sqlite, SQL: insert into "users" ("name", "email", "password", "role", "phone", "address", "updated_at", "created_at") values (Super Admin, admin@ecommerce.test, $2y$12$sm1VuA8KG.E.e551aBtLmuWHY.2IjNR34mUujXdZhuQSc9O8bAI6q, admin, +1234567890, {"street":"123 Admin St","city":"San Francisco","country":"US","zip":"94105"}, 2026-05-18 05:26:08, 2026-05-18 05:26:08)) {"exception":"[object] (Illuminate\\Database\\UniqueConstraintViolationException(code: 23000): SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: users.email (Connection: sqlite, SQL: insert into \"users\" (\"name\", \"email\", \"password\", \"role\", \"phone\", \"address\", \"updated_at\", \"created_at\") values (Super Admin, admin@ecommerce.test, $2y$12$sm1VuA8KG.E.e551aBtLmuWHY.2IjNR34mUujXdZhuQSc9O8bAI6q, admin, +1234567890, {\"street\":\"123 Admin St\",\"city\":\"San Francisco\",\"country\":\"US\",\"zip\":\"94105\"}, 2026-05-18 05:26:08, 2026-05-18 05:26:08)) at /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Connection.php:820)
+[stacktrace]
+#0 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Connection.php(779): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Connection.php(560): Illuminate\\Database\\Connection->run()
+#2 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Connection.php(524): Illuminate\\Database\\Connection->statement()
+#3 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Query/Processors/Processor.php(32): Illuminate\\Database\\Connection->insert()
+#4 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(3766): Illuminate\\Database\\Query\\Processors\\Processor->processInsertGetId()
+#5 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Builder.php(2120): Illuminate\\Database\\Query\\Builder->insertGetId()
+#6 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1359): Illuminate\\Database\\Eloquent\\Builder->__call()
+#7 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1324): Illuminate\\Database\\Eloquent\\Model->insertAndSetId()
+#8 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1163): Illuminate\\Database\\Eloquent\\Model->performInsert()
+#9 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Builder.php(1128): Illuminate\\Database\\Eloquent\\Model->save()
+#10 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Support/helpers.php(399): Illuminate\\Database\\Eloquent\\Builder->{closure:Illuminate\\Database\\Eloquent\\Builder::create():1127}()
+#11 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Builder.php(1127): tap()
+#12 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Support/Traits/ForwardsCalls.php(23): Illuminate\\Database\\Eloquent\\Builder->create()
+#13 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(2372): Illuminate\\Database\\Eloquent\\Model->forwardCallTo()
+#14 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(2384): Illuminate\\Database\\Eloquent\\Model->__call()
+#15 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/database/seeders/UserSeeder.php(14): Illuminate\\Database\\Eloquent\\Model::__callStatic()
+#16 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Database\\Seeders\\UserSeeder->run()
+#17 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::{closure:Illuminate\\Container\\BoundMethod::call():35}()
+#18 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(95): Illuminate\\Container\\Util::unwrapIfClosure()
+#19 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()
+#20 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Container.php(696): Illuminate\\Container\\BoundMethod::call()
+#21 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Seeder.php(188): Illuminate\\Container\\Container->call()
+#22 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Seeder.php(197): Illuminate\\Database\\Seeder->{closure:Illuminate\\Database\\Seeder::__invoke():187}()
+#23 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Seeder.php(61): Illuminate\\Database\\Seeder->__invoke()
+#24 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/database/seeders/DatabaseSeeder.php(11): Illuminate\\Database\\Seeder->call()
+#25 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Database\\Seeders\\DatabaseSeeder->run()
+#26 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::{closure:Illuminate\\Container\\BoundMethod::call():35}()
+#27 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(95): Illuminate\\Container\\Util::unwrapIfClosure()
+#28 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()
+#29 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Container.php(696): Illuminate\\Container\\BoundMethod::call()
+#30 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Seeder.php(188): Illuminate\\Container\\Container->call()
+#31 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Seeder.php(197): Illuminate\\Database\\Seeder->{closure:Illuminate\\Database\\Seeder::__invoke():187}()
+#32 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Console/Seeds/SeedCommand.php(70): Illuminate\\Database\\Seeder->__invoke()
+#33 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Concerns/GuardsAttributes.php(155): Illuminate\\Database\\Console\\Seeds\\SeedCommand->{closure:Illuminate\\Database\\Console\\Seeds\\SeedCommand::handle():69}()
+#34 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Console/Seeds/SeedCommand.php(69): Illuminate\\Database\\Eloquent\\Model::unguarded()
+#35 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Illuminate\\Database\\Console\\Seeds\\SeedCommand->handle()
+#36 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::{closure:Illuminate\\Container\\BoundMethod::call():35}()
+#37 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(95): Illuminate\\Container\\Util::unwrapIfClosure()
+#38 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()
+#39 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Container.php(696): Illuminate\\Container\\BoundMethod::call()
+#40 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Console/Command.php(213): Illuminate\\Container\\Container->call()
+#41 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/console/Command/Command.php(341): Illuminate\\Console\\Command->execute()
+#42 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Console/Command.php(182): Symfony\\Component\\Console\\Command\\Command->run()
+#43 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/console/Application.php(1117): Illuminate\\Console\\Command->run()
+#44 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand()
+#45 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun()
+#46 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony\\Component\\Console\\Application->run()
+#47 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/artisan(15): Illuminate\\Foundation\\Console\\Kernel->handle()
+#48 {main}
+
+[previous exception] [object] (PDOException(code: 23000): SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE constraint failed: users.email at /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Connection.php:571)
+[stacktrace]
+#0 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Connection.php(571): PDOStatement->execute()
+#1 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Connection.php(812): Illuminate\\Database\\Connection->{closure:Illuminate\\Database\\Connection::statement():560}()
+#2 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Connection.php(779): Illuminate\\Database\\Connection->runQueryCallback()
+#3 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Connection.php(560): Illuminate\\Database\\Connection->run()
+#4 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Connection.php(524): Illuminate\\Database\\Connection->statement()
+#5 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Query/Processors/Processor.php(32): Illuminate\\Database\\Connection->insert()
+#6 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(3766): Illuminate\\Database\\Query\\Processors\\Processor->processInsertGetId()
+#7 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Builder.php(2120): Illuminate\\Database\\Query\\Builder->insertGetId()
+#8 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1359): Illuminate\\Database\\Eloquent\\Builder->__call()
+#9 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1324): Illuminate\\Database\\Eloquent\\Model->insertAndSetId()
+#10 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1163): Illuminate\\Database\\Eloquent\\Model->performInsert()
+#11 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Builder.php(1128): Illuminate\\Database\\Eloquent\\Model->save()
+#12 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Support/helpers.php(399): Illuminate\\Database\\Eloquent\\Builder->{closure:Illuminate\\Database\\Eloquent\\Builder::create():1127}()
+#13 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Builder.php(1127): tap()
+#14 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Support/Traits/ForwardsCalls.php(23): Illuminate\\Database\\Eloquent\\Builder->create()
+#15 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(2372): Illuminate\\Database\\Eloquent\\Model->forwardCallTo()
+#16 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(2384): Illuminate\\Database\\Eloquent\\Model->__call()
+#17 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/database/seeders/UserSeeder.php(14): Illuminate\\Database\\Eloquent\\Model::__callStatic()
+#18 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Database\\Seeders\\UserSeeder->run()
+#19 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::{closure:Illuminate\\Container\\BoundMethod::call():35}()
+#20 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(95): Illuminate\\Container\\Util::unwrapIfClosure()
+#21 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()
+#22 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Container.php(696): Illuminate\\Container\\BoundMethod::call()
+#23 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Seeder.php(188): Illuminate\\Container\\Container->call()
+#24 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Seeder.php(197): Illuminate\\Database\\Seeder->{closure:Illuminate\\Database\\Seeder::__invoke():187}()
+#25 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Seeder.php(61): Illuminate\\Database\\Seeder->__invoke()
+#26 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/database/seeders/DatabaseSeeder.php(11): Illuminate\\Database\\Seeder->call()
+#27 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Database\\Seeders\\DatabaseSeeder->run()
+#28 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::{closure:Illuminate\\Container\\BoundMethod::call():35}()
+#29 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(95): Illuminate\\Container\\Util::unwrapIfClosure()
+#30 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()
+#31 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Container.php(696): Illuminate\\Container\\BoundMethod::call()
+#32 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Seeder.php(188): Illuminate\\Container\\Container->call()
+#33 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Seeder.php(197): Illuminate\\Database\\Seeder->{closure:Illuminate\\Database\\Seeder::__invoke():187}()
+#34 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Console/Seeds/SeedCommand.php(70): Illuminate\\Database\\Seeder->__invoke()
+#35 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Concerns/GuardsAttributes.php(155): Illuminate\\Database\\Console\\Seeds\\SeedCommand->{closure:Illuminate\\Database\\Console\\Seeds\\SeedCommand::handle():69}()
+#36 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Database/Console/Seeds/SeedCommand.php(69): Illuminate\\Database\\Eloquent\\Model::unguarded()
+#37 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Illuminate\\Database\\Console\\Seeds\\SeedCommand->handle()
+#38 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::{closure:Illuminate\\Container\\BoundMethod::call():35}()
+#39 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(95): Illuminate\\Container\\Util::unwrapIfClosure()
+#40 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()
+#41 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Container/Container.php(696): Illuminate\\Container\\BoundMethod::call()
+#42 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Console/Command.php(213): Illuminate\\Container\\Container->call()
+#43 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/console/Command/Command.php(341): Illuminate\\Console\\Command->execute()
+#44 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Console/Command.php(182): Symfony\\Component\\Console\\Command\\Command->run()
+#45 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/console/Application.php(1117): Illuminate\\Console\\Command->run()
+#46 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand()
+#47 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun()
+#48 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony\\Component\\Console\\Application->run()
+#49 /home/mtaher3toani/Work/Laravel/Parallel_Programing_Project/E-Commerce-Backend-Engine/artisan(15): Illuminate\\Foundation\\Console\\Kernel->handle()
+#50 {main}
+"} 
+[2026-05-18 07:10:41] testing.INFO: Order placed event fired for #ORD-81A7323E-20260518  
+[2026-05-18 07:10:41] testing.INFO: Order placed event fired for #ORD-81A7323E-20260518  
+[2026-05-18 07:10:41] testing.INFO: Order placed event fired for #ORD-5F7B8625-20260518  
+[2026-05-18 07:10:41] testing.INFO: Order placed event fired for #ORD-5F7B8625-20260518  
+[2026-05-18 07:10:41] testing.INFO: Order placed event fired for #ORD-DC404747-20260518  
+[2026-05-18 07:10:41] testing.INFO: Order placed event fired for #ORD-DC404747-20260518  
+[2026-05-18 07:10:41] testing.INFO: Order placed event fired for #ORD-4D573C34-20260518  
+[2026-05-18 07:10:41] testing.INFO: Order placed event fired for #ORD-4D573C34-20260518  
+[2026-05-18 07:12:25] testing.INFO: Order placed event fired for #ORD-6ED37AC3-20260518  
+[2026-05-18 07:12:25] testing.INFO: Order placed event fired for #ORD-6ED37AC3-20260518  
+[2026-05-18 07:12:25] testing.INFO: Order placed event fired for #ORD-8CAB71D8-20260518  
+[2026-05-18 07:12:25] testing.INFO: Order placed event fired for #ORD-8CAB71D8-20260518  
+[2026-05-18 07:12:25] testing.INFO: Order placed event fired for #ORD-0BCA367E-20260518  
+[2026-05-18 07:12:25] testing.INFO: Order placed event fired for #ORD-0BCA367E-20260518  
+[2026-05-18 07:12:25] testing.INFO: Order placed event fired for #ORD-6B549A09-20260518  
+[2026-05-18 07:12:25] testing.INFO: Order placed event fired for #ORD-6B549A09-20260518  

@@ -97,6 +97,7 @@ services:
       LOG_CHANNEL: stack
       LOG_LEVEL: "${LOG_LEVEL:-warning}"
     volumes: &app_volumes
+      - ./:/var/www/app
       - sqlite_data:/var/www/app/database
       - storage_data:/var/www/app/storage
     depends_on:

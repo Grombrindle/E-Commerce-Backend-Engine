@@ -93,7 +93,7 @@ use Illuminate\Support\Facades\DB;
  *  1. Validate cart
  *  2. Open DB transaction
  *  3. Lock inventory rows (SELECT FOR UPDATE)
- *  4. Deduct stock
+ *  4. Deduct stock AND release reservations
  *  5. Create order + items
  *  6. Clear cart
  *  7. Commit
@@ -102,9 +102,10 @@ use Illuminate\Support\Facades\DB;
 class OrderService
 {
     public function __construct(
-        protected CartService      $cartService,
+        protected CartService $cartService,
         protected InventoryService $inventoryService,
-    ) {}
+    ) {
+    }
 
     /**
      * Place an order from the user's current cart.
@@ -125,43 +126,46 @@ class OrderService
         $this->cartService->validateForCheckout($cart);
 
         $order = DB::transaction(function () use ($user, $cart, $data) {
-            $subtotal    = 0;
-            $itemsData   = [];
+            $subtotal = 0;
+            $itemsData = [];
 
             foreach ($cart->activeItems as $item) {
                 // Pessimistic lock inside transaction
                 $this->inventoryService->decrementStock($item->product_id, $item->quantity);
 
-                $lineTotal   = $item->quantity * $item->price;
-                $subtotal   += $lineTotal;
+                // Release the reservation that was made when the item was added to cart
+                $this->inventoryService->releaseReservation($item->product_id, $item->quantity);
+
+                $lineTotal = $item->quantity * $item->price;
+                $subtotal += $lineTotal;
 
                 $itemsData[] = [
-                    'product_id'   => $item->product_id,
+                    'product_id' => $item->product_id,
                     'product_name' => $item->product->name,
-                    'product_sku'  => $item->product->sku,
-                    'quantity'     => $item->quantity,
-                    'unit_price'   => $item->price,
-                    'subtotal'     => $lineTotal,
-                    'created_at'   => now(),
-                    'updated_at'   => now(),
+                    'product_sku' => $item->product->sku,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->price,
+                    'subtotal' => $lineTotal,
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ];
             }
 
-            $tax         = round($subtotal * 0.15, 2); // 15% VAT
+            $tax = round($subtotal * 0.15, 2); // 15% VAT
             $shippingFee = $subtotal >= 100 ? 0 : 9.99; // Free shipping over $100
-            $total       = $subtotal + $tax + $shippingFee;
+            $total = $subtotal + $tax + $shippingFee;
 
             $order = Order::create([
-                'user_id'          => $user->id,
-                'status'           => Order::STATUS_PENDING,
-                'subtotal'         => $subtotal,
-                'tax'              => $tax,
-                'shipping_fee'     => $shippingFee,
-                'discount'         => 0,
-                'total'            => $total,
+                'user_id' => $user->id,
+                'status' => Order::STATUS_PENDING,
+                'subtotal' => $subtotal,
+                'tax' => $tax,
+                'shipping_fee' => $shippingFee,
+                'discount' => 0,
+                'total' => $total,
                 'shipping_address' => $data['shipping_address'],
-                'billing_address'  => $data['billing_address'] ?? $data['shipping_address'],
-                'notes'            => $data['notes'] ?? null,
+                'billing_address' => $data['billing_address'] ?? $data['shipping_address'],
+                'notes' => $data['notes'] ?? null,
             ]);
 
             OrderItem::insert(array_map(fn($i) => array_merge($i, ['order_id' => $order->id]), $itemsData));
@@ -217,8 +221,8 @@ class OrderService
             }
 
             $order->update([
-                'status'        => Order::STATUS_CANCELLED,
-                'cancelled_at'  => now(),
+                'status' => Order::STATUS_CANCELLED,
+                'cancelled_at' => now(),
                 'cancel_reason' => $reason,
             ]);
         });

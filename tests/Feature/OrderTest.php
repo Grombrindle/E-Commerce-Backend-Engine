@@ -35,6 +35,9 @@ class OrderTest extends TestCase
     {
         $cart = Cart::create(['user_id' => $this->user->id, 'expires_at' => now()->addDays(1)]);
         CartItem::create(['cart_id' => $cart->id, 'product_id' => $this->product->id, 'quantity' => $qty, 'price' => $this->product->price]);
+
+        // Reserve stock to mirror real CartService behavior (otherwise reserved_quantity goes negative on order)
+        $this->product->inventory->increment('reserved_quantity', $qty);
     }
 
     private function shippingAddress(): array

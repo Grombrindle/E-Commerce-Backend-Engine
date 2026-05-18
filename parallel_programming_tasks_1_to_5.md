@@ -1242,377 +1242,419 @@ Order::whereDate('created_at', today())
 
 ### 1. Problem Analysis
 
-A single server handling all requests creates a **single point of failure** and a **performance ceiling**. Load distribution (load balancing) spreads incoming requests across multiple servers (or virtual workers) to:
+A single server handling all requests creates a **single point of failure** and a **performance ceiling**. Load distribution (load balancing) spreads incoming requests across multiple servers to:
 - Prevent any one server from being overwhelmed.
 - Allow horizontal scaling.
 - Improve fault tolerance — if one server fails, others continue.
 
-In a Laravel homework context, we simulate this by:
-1. Implementing a **Round-Robin Load Balancer Service** (software-level routing logic) backed by a Redis atomic counter.
-2. Mapping to multiple **Laravel queue connections** that simulate separate server queues.
+In this project, we implement load distribution at **two levels**:
+1. **Infrastructure Level**: Nginx as a reverse proxy load balancer with weighted round-robin, distributing HTTP requests across 3 Laravel app containers.
+2. **Application Level**: Supervisor-managed queue workers distributed across queues, with Redis semaphore limiting concurrent job execution.
 
-**Strategy chosen: Weighted Round-Robin**, which distributes requests proportionally based on each server's declared capacity.
+**Strategy chosen: Nginx Weighted Round-Robin** with upstream weights 3:2:1 — proportional to each server's capacity.
 
 ---
 
 ### 2. Code Before the Fix (Single Server — No Distribution)
 
-```php
-<?php
-// app/Http/Controllers/OrderController.php  — SINGLE SERVER
+The original setup had ONE app service with NO load balancing. All requests hit a single PHP-FPM server running on one port. No Nginx proxy, no Redis, no horizontal scaling.
 
-class OrderController extends Controller
-{
-    public function checkout(Request $request)
-    {
-        // ⚠ Every request goes to the same processing pipeline.
-        // No distribution — one server bears all load.
-        ProcessOrderJob::dispatch($request->all())
-                        ->onQueue('default'); // Only one queue — one server
+```yaml
+# docker-compose.yml  — BEFORE (single instance, no LB)
 
-        return response()->json(['status' => 'Processing']);
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"       # ⚠ Direct exposure, no Nginx
+    # ⚠ Only ONE container — no redundancy
+    # ⚠ No Redis — queue runs sync (QUEUE_CONNECTION=sync)
+    # ⚠ No load balancer — single point of failure
+```
+
+```nginx
+# nginx config  — BEFORE (single server, no load balancing)
+
+server {
+    listen 80;
+    server_name api.example.com;
+
+    # ⚠ Single backend — if it goes down, site is down
+    location / {
+        proxy_pass http://localhost:8000;
     }
 }
 ```
 
-```php
-// config/queue.php  — Only one connection defined
-'connections' => [
-    'redis' => [
-        'driver' => 'redis',
-        'queue'  => 'default',
-    ],
-],
-```
+**What went wrong:**
+- Single app instance → max throughput capped at one server's capacity
+- No Nginx → no rate limiting, no caching, no SSL termination
+- No Redis → no async queues, semaphores not possible
+- No horizontal scale → cannot handle traffic spikes
+- Single point of failure → if the server dies, everything dies
+- No health checks → failed server still (would) receive requests
 
 ---
 
-### 3. Code After the Fix (Weighted Round-Robin Load Balancer)
+### 3. Code After the Fix (Nginx Weighted Round-Robin Load Balancer)
 
-**Step 1: Define multiple server queues in `config/queue.php`**
+**Step 1: Docker Compose — 3 App Instances with Nginx + Redis**
 
-```php
-<?php
-// config/queue.php
+```yaml
+# docker-compose.yml  — AFTER (3 instances + Nginx + Redis)
 
-return [
-    'default' => env('QUEUE_CONNECTION', 'redis'),
+services:
 
-    'connections' => [
-        // ✅ Each connection simulates a separate server
-        'server_1' => [
-            'driver'       => 'redis',
-            'connection'   => 'default',
-            'queue'        => 'server_1_orders',
-            'retry_after'  => 90,
-            'block_for'    => null,
-            'after_commit' => true,
-        ],
-        'server_2' => [
-            'driver'       => 'redis',
-            'connection'   => 'default',
-            'queue'        => 'server_2_orders',
-            'retry_after'  => 90,
-            'block_for'    => null,
-            'after_commit' => true,
-        ],
-        'server_3' => [
-            'driver'       => 'redis',
-            'connection'   => 'default',
-            'queue'        => 'server_3_orders',
-            'retry_after'  => 90,
-            'block_for'    => null,
-            'after_commit' => true,
-        ],
-    ],
-];
+  # ── Redis (Queue + Cache + Semaphore) ────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Laravel App Instance 1 (weight=3 — 50% traffic) ──
+  app1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecommerce-api:latest
+    container_name: ecommerce-app-1
+    hostname: app1
+    environment: &app_env
+      APP_ENV: "${APP_ENV:-production}"
+      APP_DEBUG: "${APP_DEBUG:-false}"
+      APP_KEY: "${APP_KEY:-base64:U2FtcGxlS2V5Rm9yRGV2ZWxvcG1lbnQ=}"
+      APP_URL: "${APP_URL:-http://localhost}"
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /var/www/app/database/database.sqlite
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      LOG_CHANNEL: stack
+      LOG_LEVEL: "${LOG_LEVEL:-warning}"
+    volumes: &app_volumes
+      - ./:/var/www/app
+      - sqlite_data:/var/www/app/database
+      - storage_data:/var/www/app/storage
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Laravel App Instance 2 (weight=2 — 33% traffic) ──
+  app2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecommerce-api:latest
+    container_name: ecommerce-app-2
+    hostname: app2
+    environment: *app_env
+    volumes: *app_volumes
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Laravel App Instance 3 (weight=1 — 17% traffic) ──
+  app3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecommerce-api:latest
+    container_name: ecommerce-app-3
+    hostname: app3
+    environment: *app_env
+    volumes: *app_volumes
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Nginx Load Balancer ──────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: ecommerce-nginx
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    volumes:
+      - ./deploy/nginx/load-balancer.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app1
+      - app2
+      - app3
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  sqlite_data:
+  storage_data:
 ```
 
-**Step 2: Load Balancer configuration**
+**Key points:**
+- Each app container has a unique `hostname` (app1, app2, app3) for deterministic Nginx resolution
+- All apps share the same SQLite database volume and Redis instance
+- Nginx uses these hostnames in its `upstream` block
 
-```php
-<?php
-// config/load_balancer.php
+**Step 2: Nginx Load Balancer Configuration**
 
-return [
-    'servers' => [
-        [
-            'name'       => 'server_1',
-            'queue'      => 'server_1_orders',
-            'connection' => 'server_1',
-            'weight'     => 3,  // ✅ Gets 3/6 = 50% of traffic (most powerful server)
-        ],
-        [
-            'name'       => 'server_2',
-            'queue'      => 'server_2_orders',
-            'connection' => 'server_2',
-            'weight'     => 2,  // ✅ Gets 2/6 = 33% of traffic
-        ],
-        [
-            'name'       => 'server_3',
-            'queue'      => 'server_3_orders',
-            'connection' => 'server_3',
-            'weight'     => 1,  // ✅ Gets 1/6 = 17% of traffic (least powerful)
-        ],
-    ],
-];
-```
+```nginx
+# deploy/nginx/load-balancer.conf
 
-**Step 3: The Weighted Round-Robin Load Balancer Service**
+# ── Weighted Upstream Servers ──────────────────────────
+upstream laravel_backend {
+    # Each Docker container has an explicit hostname (app1, app2, app3).
+    # This ensures deterministic weighted distribution.
+    #
+    # weight=3 → 3/6 = 50% of traffic (most powerful server)
+    # weight=2 → 2/6 = 33% of traffic
+    # weight=1 → 1/6 = 17% of traffic (least powerful)
+    server app1:8000 weight=3 max_fails=3 fail_timeout=30s;
+    server app2:8000 weight=2 max_fails=3 fail_timeout=30s;
+    server app3:8000 weight=1 max_fails=3 fail_timeout=30s;
 
-```php
-<?php
-// app/Services/LoadBalancerService.php
+    keepalive 32;
+}
 
-namespace App\Services;
+# ── Rate Limiting (60 req/s, burst 20) ─────────────────
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=60r/s;
 
-use Illuminate\Support\Facades\Redis;
-use RuntimeException;
+server {
+    listen 80 default_server;
+    server_name _;
 
-class LoadBalancerService
-{
-    /** @var array<int, array> Expanded list with each server repeated by its weight */
-    private array $weightedPool;
+    # ── Security & Monitoring Headers ──────────────────
+    add_header X-Upstream $upstream_addr always;
+    add_header X-Upstream-Status $upstream_status always;
 
-    private string $counterKey = 'load_balancer:rr_counter';
+    # ── Proxy to Laravel Backend ──────────────────────
+    location / {
+        proxy_pass http://laravel_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 60s;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 60s;
 
-    public function __construct()
-    {
-        $this->weightedPool = $this->buildWeightedPool();
-    }
-
-    /**
-     * Returns the next server connection name using Weighted Round-Robin.
-     *
-     * Uses an atomic Redis INCR to get the next index without a race condition
-     * on the counter itself.
-     */
-    public function nextConnection(): string
-    {
-        if (empty($this->weightedPool)) {
-            throw new RuntimeException('No servers configured in load_balancer.php');
-        }
-
-        // ✅ INCR is atomic — no two requests get the same counter value.
-        // Modulo maps the ever-increasing counter back to a pool index.
-        $index  = Redis::incr($this->counterKey) % count($this->weightedPool);
-        $server = $this->weightedPool[$index];
-
-        return $server['connection'];
-    }
-
-    /**
-     * Returns a server from the pool by a consistent hash of the provided key.
-     * Useful for session affinity (always route user X to the same server).
-     */
-    public function connectionByAffinity(string $key): string
-    {
-        $index = crc32($key) % count($this->weightedPool);
-        return $this->weightedPool[abs($index)]['connection'];
-    }
-
-    /**
-     * Builds a flat array where each server appears N times equal to its weight.
-     * Example: weights [3, 2, 1] → pool = [s1, s1, s1, s2, s2, s3]
-     */
-    private function buildWeightedPool(): array
-    {
-        $pool = [];
-        foreach (config('load_balancer.servers') as $server) {
-            for ($i = 0; $i < ($server['weight'] ?? 1); $i++) {
-                $pool[] = $server;
-            }
-        }
-        return $pool;
-    }
-
-    /**
-     * Returns current load stats for monitoring.
-     * @return array<string, int>
-     */
-    public function getQueueLengths(): array
-    {
-        $stats = [];
-        foreach (config('load_balancer.servers') as $server) {
-            $stats[$server['name']] = Redis::llen($server['queue']);
-        }
-        return $stats;
+        # Nginx-level rate limiting (backup to Laravel's RateLimiter)
+        limit_req zone=api_limit burst=20 nodelay;
     }
 }
 ```
 
-**Step 4: Use the Load Balancer in the Controller**
+**Step 3: Supervisor Configuration (Queue Worker Distribution)**
 
-```php
-<?php
-// app/Http/Controllers/OrderController.php  — WITH LOAD DISTRIBUTION
+```ini
+# docker/supervisord.conf
 
-namespace App\Http\Controllers;
+[supervisord]
+nodaemon=false
+user=root
 
-use App\Jobs\ProcessOrderJob;
-use App\Services\LoadBalancerService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+[program:laravel-worker-default]
+command=php /var/www/app/artisan queue:work redis --queue=default,invoices,notifications,analytics --sleep=3 --tries=3 --max-jobs=500
+numprocs=5          # ✅ Max 5 parallel workers for general queue
+autostart=true
+autorestart=true
+user=www-data
 
-class OrderController extends Controller
-{
-    public function __construct(private LoadBalancerService $loadBalancer) {}
+[program:laravel-worker-heavy]
+command=php /var/www/app/artisan queue:work redis --queue=heavy --sleep=3 --tries=3
+numprocs=2          # ✅ Only 2 workers for heavy jobs — intentionally limited
+autostart=true
+autorestart=true
+user=www-data
 
-    public function checkout(Request $request)
-    {
-        // Core order creation stays synchronous (atomic transaction)
-        $order = DB::transaction(fn() => $this->createOrder($request));
-
-        // ✅ Load balancer selects the next server using Weighted Round-Robin.
-        // Requests are distributed proportionally across all configured servers.
-        $connection = $this->loadBalancer->nextConnection();
-
-        ProcessOrderJob::dispatch($order)
-                        ->onConnection($connection);
-
-        return response()->json([
-            'message'    => 'Order placed.',
-            'order'      => $order,
-            'routed_to'  => $connection, // ✅ Include in response for monitoring/debugging
-        ], 201);
-    }
-}
+[program:laravel-worker-batch]
+command=php /var/www/app/artisan queue:work redis --queue=batch-processing --sleep=3 --tries=3 --timeout=300
+numprocs=3          # ✅ 3 workers for batch processing (Task 4)
+autostart=true
+autorestart=true
+user=www-data
 ```
 
-**Step 5: Monitoring endpoint**
-
-```php
-<?php
-// app/Http/Controllers/LoadBalancerMonitorController.php
-
-namespace App\Http\Controllers;
-
-use App\Services\LoadBalancerService;
-use Illuminate\Http\JsonResponse;
-
-class LoadBalancerMonitorController extends Controller
-{
-    public function __construct(private LoadBalancerService $loadBalancer) {}
-
-    /**
-     * Shows current queue depths across all servers.
-     * Use this to verify distribution is working correctly.
-     */
-    public function status(): JsonResponse
-    {
-        return response()->json([
-            'queue_lengths' => $this->loadBalancer->getQueueLengths(),
-            'strategy'      => 'Weighted Round-Robin',
-        ]);
-    }
-}
-```
-
-```php
-// routes/api.php
-Route::get('/load-balancer/status', [LoadBalancerMonitorController::class, 'status'])
-     ->middleware('auth:sanctum');
-```
-
-**Step 6: Start workers for each simulated server**
+**Step 4: Docker Entrypoint (Boot Sequence)**
 
 ```bash
-# Each command simulates a separate server's worker pool
-php artisan queue:work --connection=server_1 --queue=server_1_orders --sleep=3 &
-php artisan queue:work --connection=server_2 --queue=server_2_orders --sleep=3 &
-php artisan queue:work --connection=server_3 --queue=server_3_orders --sleep=3 &
+# docker/entrypoint.sh
+
+#!/bin/bash
+set -e
+
+# Wait for Redis
+if [ -n "$REDIS_HOST" ]; then
+    echo "⏳ Waiting for Redis at $REDIS_HOST:${REDIS_PORT:-6379}..."
+    while ! nc -z "$REDIS_HOST" "${REDIS_PORT:-6379}" 2>/dev/null; do sleep 1; done
+    echo "✅ Redis is ready."
+fi
+
+# Create SQLite database
+if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
+    DB_PATH="${DB_DATABASE:-/var/www/app/database/database.sqlite}"
+    mkdir -p "$(dirname "$DB_PATH")"
+    touch "$DB_PATH"
+fi
+
+# Laravel setup
+php artisan key:generate --force --quiet 2>/dev/null || true
+php artisan migrate --force --isolated 2>&1 || echo "⚠️ Migration warning (continuing...)"
+
+# Fix permissions
+chown -R www-data:www-data storage bootstrap/cache database 2>/dev/null || true
+
+# Start PHP-FPM
+php-fpm -D
+
+# Start Supervisor (queue workers)
+supervisord -c /etc/supervisor/conf.d/supervisord.conf 2>/dev/null || true
+
+# Start Laravel
+exec php artisan serve --host=0.0.0.0 --port=8000
 ```
 
 ---
 
-### 4. Explanation of the Fix
+### 4. Architecture Overview
+
+```
+                         ┌──────────────┐
+                         │   Nginx      │
+  User ──► :8080 ───────►  port 80     │
+                         │  weight 3:2:1│
+                         └──────┬───────┘
+                                │
+              ┌─────────────────┼─────────────────┐
+              ▼                 ▼                  ▼
+        ┌──────────┐    ┌──────────┐     ┌──────────┐
+        │  app1    │    │  app2    │     │  app3    │
+        │ weight=3 │    │ weight=2 │     │ weight=1 │
+        │ 50% trf  │    │ 33% trf  │     │ 17% trf  │
+        └────┬─────┘    └────┬─────┘     └────┬─────┘
+             │               │                │
+             └───────┬───────┴───────┬────────┘
+                     ▼               ▼
+              ┌──────────┐   ┌──────────┐
+              │  Redis    │   │  SQLite  │
+              │(queue +   │   │ (shared  │
+              │ semaphore)│   │ volume)  │
+              └──────────┘   └──────────┘
+```
+
+---
+
+### 5. Explanation of the Fix
 
 | Component | Role |
 |---|---|
-| `config/load_balancer.php` | Declares servers with weights — the "capacity declaration" of each node |
-| `buildWeightedPool()` | Expands weights into a flat pool: `[s1,s1,s1,s2,s2,s3]` for weights `[3,2,1]` |
-| `Redis::incr($counterKey)` | Atomic increment — the pointer that moves around the pool with each request |
-| `% count($pool)` | Wraps the counter around the pool size |
-| `connectionByAffinity()` | Consistent hash for session stickiness (same user → same server) |
-| `getQueueLengths()` | Observability — verify that distribution is working as expected |
+| `docker-compose.yml` | Defines 3 app instances with unique hostnames, plus Redis and Nginx services |
+| `deploy/nginx/load-balancer.conf` | Nginx `upstream` block with weighted servers and health checks |
+| `Dockerfile` | PHP-FPM + Composer + Supervisor in one container (built once, run 3 times) |
+| `docker/supervisord.conf` | Manages queue worker processes within each container |
+| `docker/entrypoint.sh` | Boot sequence: wait for Redis → migrate → start PHP-FPM → start workers → serve |
+| `Redis` | Shared state: async queues, semaphore counters, cache |
+| `X-Upstream` header | Nginx adds response header showing which container handled the request (for monitoring) |
 
 **Distribution result with weights `[3, 2, 1]`:**
 ```
-Request  1 → server_1
-Request  2 → server_1
-Request  3 → server_1
-Request  4 → server_2
-Request  5 → server_2
-Request  6 → server_3
-Request  7 → server_1  ← wraps around
+Request  1 → app1 (x-upstream: 172.18.0.2:8000)
+Request  2 → app1
+Request  3 → app1
+Request  4 → app2 (x-upstream: 172.18.0.3:8000)
+Request  5 → app2
+Request  6 → app3 (x-upstream: 172.18.0.4:8000)
+Request  7 → app1  ← wraps around
 ...
 ```
 
 ---
 
-### 5. Why This Approach Is the Best
+### 6. Why This Approach Is the Best
 
-- **Weighted distribution** — more powerful servers handle proportionally more traffic. Simple Round-Robin ignores server capacity differences.
-- **Atomic counter** — `Redis::incr()` is an atomic operation; no race condition on the counter itself.
-- **Affinity support** — the same service provides session-sticky routing for stateful operations.
-- **Zero external tools needed** — fully implemented in Laravel/Redis with no Nginx or external load balancer required for simulation.
-- **Observable** — the `/load-balancer/status` endpoint makes it easy to verify distribution during stress testing.
-
----
-
-### 6. Two Alternative Solutions
-
-**Alternative A — Simple Round-Robin (No Weights)**
-
-```php
-// Simpler — all servers equal
-public function nextConnection(): string
-{
-    $servers    = config('load_balancer.servers');
-    $index      = Redis::incr($this->counterKey) % count($servers);
-    return $servers[$index]['connection'];
-}
-```
-
-**Alternative B — Least-Connections Strategy**
-
-```php
-// Routes to the server with the shortest queue (most idle)
-public function leastLoadedConnection(): string
-{
-    $servers = config('load_balancer.servers');
-
-    return collect($servers)
-        ->sortBy(fn($server) => Redis::llen($server['queue']))
-        ->first()['connection'];
-}
-```
+- **Industry standard** — Nginx is the most widely used reverse proxy and load balancer in production.
+- **Weighted distribution** — more powerful servers handle proportionally more traffic.
+- **Health checks** — `max_fails=3 fail_timeout=30s` removes failed servers from the pool.
+- **Fault tolerance** — if app2 crashes, Nginx routes traffic to app1+app3 only. The API stays up.
+- **Rate limiting** — Nginx-level `limit_req` as a first defense before reaching Laravel.
+- **Observable** — `X-Upstream` header in responses shows which server handled each request.
+- **Horizontal scaling** — add app4 with `weight=1` to the upstream block, no app changes needed.
+- **Containerized** — identical environments across all instances; one Dockerfile builds once.
 
 ---
 
-### 7. Why the Alternatives Are Less Suitable
+### 7. Two Alternative Solutions
+
+**Alternative A — Docker Swarm (Built-in Service Scaling)**
+
+```yaml
+# docker-compose.yml with Docker Swarm mode
+version: '3.8'
+
+services:
+  app:
+    build: .
+    deploy:
+      replicas: 3          # ✅ Docker manages distribution
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    ports:
+      - "8000:8000"
+```
+
+**Alternative B — HAProxy (Alternative Reverse Proxy)**
+
+```haproxy
+# haproxy.cfg
+
+frontend http-in
+    bind *:80
+    default_backend laravel_backend
+
+backend laravel_backend
+    balance roundrobin
+    server app1 app1:8000 weight 3 check
+    server app2 app2:8000 weight 2 check
+    server app3 app3:8000 weight 1 check
+```
+
+---
+
+### 8. Why the Alternatives Are Less Suitable
 
 | Alternative | Weakness |
 |---|---|
-| **A — Simple Round-Robin** | Ignores server capacity differences. A 2-core server receives the same traffic as an 8-core server → smaller server overwhelmed. Works only when all servers are identical. |
-| **B — Least-Connections** | Requires reading queue lengths on **every request** — 3 Redis reads per dispatch instead of 1. Under high traffic this creates Redis latency overhead. Also, queue length is not always an accurate proxy for server load (a queue can be short but with very long-running jobs). |
+| **A — Docker Swarm** | Does simple round-robin only — no weighted distribution. Health checks are less granular. Requires Swarm mode (overlay networking). Less common in production than Nginx. |
+| **B — HAProxy** | Excellent load balancer but adds another service to the stack. Nginx already handles SSL, static files, and rate limiting. Using HAProxy alongside Nginx would be redundant. |
 
-**Weighted Round-Robin** achieves the right balance: it respects server capacity without the per-request overhead of dynamic measurements.
+**Nginx** wins because it's already the most common entry point for PHP applications, adds zero extra complexity, and provides weighted round-robin, health checks, rate limiting, and observability in a single tool.
 
 ---
 
-### 8. Why the Problem Happened
+### 9. Why the Problem Happened
 
-The original design implicitly assumed a single-server environment — all routes, jobs, and database connections were configured for one queue. As traffic grows, the single queue becomes a bottleneck: more jobs pile up than the single set of workers can drain. The system was designed for convenience, not for horizontal scale.
+The original design implicitly assumed a single-server environment — one app container, no Nginx proxy, no Redis. As traffic grows, the single server becomes a bottleneck: more requests pile up than the single PHP-FPM pool can handle. The system was designed for convenience, not for horizontal scale. By adding Nginx as a load balancer and Redis as shared state, we can horizontally scale to any number of app instances.
 
 ---
 
 ## Summary Table
 
-| Task | Laravel Mechanism | Key Concept |
+| Task | Laravel / Infrastructure Mechanism | Key Concept |
 |---|---|---|
 | 1 — Race Condition | `DB::transaction()` + `lockForUpdate()` | Pessimistic locking — row-level exclusive lock |
 | 2 — Capacity Control | `RateLimiter` + Redis Semaphore + Supervisor | Multi-layer throttling — HTTP, queue, execution |
 | 3 — Async Queues | `ShouldQueue` + `dispatch()` + `after_commit` | Fire-and-forget — decouple response from processing |
 | 4 — Batch Processing | `chunk()` + `Bus::batch()` | Memory-bounded parallel chunking |
-| 5 — Load Distribution | Weighted Round-Robin + Redis INCR | Atomic counter + weighted server pool |
+| 5 — Load Distribution | Nginx upstream + Docker Compose 3-instance | Weighted round-robin on infrastructure level |
