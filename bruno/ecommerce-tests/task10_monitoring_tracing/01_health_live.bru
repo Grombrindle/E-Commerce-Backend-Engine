@@ -1,0 +1,27 @@
+meta {
+  name: 1. Health Check — Liveness Probe
+  type: http
+}
+
+get {
+  url: {{base_url}}/health/live
+  body: none
+  auth: none
+}
+
+script:post-response {
+  const body = res.getBody();
+  console.log("💚 Liveness: " + (body.status || "unknown"));
+  console.log("✅ This endpoint is used by Docker's healthcheck");
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response body has status = alive", function() {
+    const body = res.getBody();
+    expect(body.status).to.equal("alive");
+  });
+}

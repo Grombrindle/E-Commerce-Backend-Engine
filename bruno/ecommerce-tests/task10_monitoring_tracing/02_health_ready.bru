@@ -1,0 +1,54 @@
+meta {
+  name: 2. Health — Readiness Probe (Deep Check)
+  type: http
+}
+
+get {
+  url: {{base_url}}/health/ready
+  body: none
+  auth: none
+}
+
+script:post-response {
+  const body = res.getBody();
+  const status = body.status || "unknown";
+  const checks = body.checks || {};
+
+  console.log("🔍 Readiness: " + status);
+  console.log("Host: " + (body.hostname || "unknown"));
+
+  Object.keys(checks).forEach(key => {
+    const check = checks[key];
+    const icon = check.healthy ? "✅" : "🔴";
+    console.log("  " + icon + " " + key + ": " + (check.message || ""));
+  });
+
+  if (status === "healthy") {
+    console.log("✅ ALL SYSTEMS HEALTHY");
+  } else {
+    console.log("🔴 SYSTEM IS DEGRADED");
+  }
+
+  bru.setVar("health_status", status);
+  bru.setVar("health_hostname", body.hostname || "unknown");
+}
+
+tests {
+  test("Readiness probe returns 200 (healthy)", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Health status is 'healthy'", function() {
+    const body = res.getBody();
+    expect(body.status).to.equal("healthy");
+  });
+
+  test("All dependency checks pass", function() {
+    const body = res.getBody();
+    if (body.checks) {
+      Object.values(body.checks).forEach(check => {
+        expect(check.healthy).to.be.true;
+      });
+    }
+  });
+}

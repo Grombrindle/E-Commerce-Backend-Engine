@@ -1,0 +1,33 @@
+meta {
+  name: Add to Cart (User 1)
+  type: http
+}
+
+post {
+  url: {{base_url}}/cart/items
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token1}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "product_id": {{product_id}},
+    "quantity": 1
+  }
+}
+
+script:post-response {
+  const itemId = res.body.id || res.body.data?.id;
+  if (itemId) {
+    bru.setVar("cart_item_id", itemId.toString());
+  }
+}
+
+assert {
+  res.status: eq 201
+}

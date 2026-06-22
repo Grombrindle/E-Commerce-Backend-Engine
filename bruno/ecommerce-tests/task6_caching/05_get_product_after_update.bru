@@ -1,0 +1,46 @@
+meta {
+  name: 5. Get Product After Update (Verify Fresh Data)
+  type: http
+}
+
+get {
+  url: {{base_url}}/products/{{cached_product_id}}
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  const startTime = Date.now();
+  bru.setVar("task6_after_update_start", startTime.toString());
+}
+
+script:post-response {
+  const startTime = parseInt(bru.getVar("task6_after_update_start") || "0");
+  const duration = Date.now() - startTime;
+
+  const body = res.getBody();
+  if (body.data) {
+    const name = body.data.name || "";
+    if (name.includes("Updated Product")) {
+      console.log("✅ Cache invalidation is WORKING! Fresh data was fetched.");
+    } else {
+      console.log("⚠️ Product name is unchanged — cache may NOT have been invalidated.");
+    }
+  }
+
+  console.log("📊 Response time: " + duration + "ms");
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Product data is fresh (not stale cache)", function() {
+    const body = res.getBody();
+    const name = body.data?.name || "";
+    const wasUpdated = name.includes("Updated Product");
+    console.log("Product name: " + name);
+    expect(wasUpdated).to.be.true;
+  });
+}

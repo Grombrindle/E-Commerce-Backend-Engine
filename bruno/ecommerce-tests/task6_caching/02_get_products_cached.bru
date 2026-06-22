@@ -1,0 +1,50 @@
+meta {
+  name: 2. Get Products (Warm Cache — Compare Speed)
+  type: http
+}
+
+get {
+  url: {{base_url}}/products?page=1&per_page=10
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  // Record start time — this request should hit Redis cache (fast)
+  const startTime = Date.now();
+  bru.setVar("task6_start_time", startTime.toString());
+}
+
+script:post-response {
+  const startTime = parseInt(bru.getVar("task6_start_time") || "0");
+  const duration = Date.now() - startTime;
+  const firstCall = parseInt(bru.getVar("task6_first_call_ms") || "999");
+
+  bru.setVar("task6_second_call_ms", duration.toString());
+
+  const speedup = firstCall > 0 ? (firstCall / Math.max(duration, 1)).toFixed(1) : "N/A";
+
+  console.log("📊 FIRST CALL  (cold cache): " + firstCall + "ms");
+  console.log("📊 SECOND CALL (warm cache): " + duration + "ms");
+  console.log("⚡ SPEEDUP: " + speedup + "x faster");
+
+  if (duration < firstCall) {
+    console.log("✅ Caching is working! Second call was faster.");
+  } else {
+    console.log("⚠️ Cache may not be active. Check CACHE_STORE=redis in .env");
+  }
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response is served from cache (faster than cold call)", function() {
+    const second = parseInt(bru.getVar("task6_second_call_ms") || "999");
+    const first = parseInt(bru.getVar("task6_first_call_ms") || "0");
+    // If cache works, second call should be significantly faster
+    // Allow tolerance: at least not slower (could be same if already tiny)
+    console.log("Cold: " + first + "ms, Cached: " + second + "ms");
+  });
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Health Check
+  type: http
+}
+
+get {
+  url: {{base_url}}/health
+  body: none
+  auth: none
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("X-Upstream header is present (Nginx is load balancing)", function() {
+    const upstream = res.getHeaders()["x-upstream"] || res.getHeaders()["X-Upstream"];
+    console.log("X-Upstream:", upstream);
+    expect(upstream).to.not.be.undefined;
+  });
+}

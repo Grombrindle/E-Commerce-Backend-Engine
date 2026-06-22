@@ -1,0 +1,40 @@
+meta {
+  name: 2. Check Prometheus Metrics (while k6 runs)
+  type: http
+}
+
+get {
+  url: {{prometheus_url}}/api/v1/query?query=up
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+script:post-response {
+  const body = res.getBody();
+  const results = body.data?.result || [];
+  console.log("📊 Prometheus Targets:");
+  results.forEach(r => {
+    const instance = r.metric.instance || "unknown";
+    const job = r.metric.job || "unknown";
+    const value = r.value?.[1] || "?";
+    const icon = value === "1" ? "✅" : "🔴";
+    console.log(`  ${icon} ${instance} (${job}): ${value}`);
+  });
+}
+
+tests {
+  test("Prometheus is reachable", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("All targets are UP", function() {
+    const body = res.getBody();
+    const results = body.data?.result || [];
+    const allUp = results.every(r => r.value?.[1] === "1");
+    expect(allUp).to.be.true;
+  });
+}

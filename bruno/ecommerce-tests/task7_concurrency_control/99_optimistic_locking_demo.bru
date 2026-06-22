@@ -1,0 +1,89 @@
+meta {
+  name: ⚡ Optimistic Locking Demo
+  type: http
+}
+
+get {
+  url: {{base_url}}/products/{{cc_product_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{cc_token}}
+}
+
+script:pre-request {
+  /*
+   * ═══════════════════════════════════════════════════════
+   * OPTIMISTIC LOCKING DEMO
+   * ═══════════════════════════════════════════════════════
+   *
+   * Prerequisites:
+   *   docker compose exec app1 php artisan migrate
+   *   (adds 'version' column to inventories table)
+   *
+   * Step 1 — Set variables:
+   *   Set cc_product_id = the ID of a product with high stock (>50)
+   *
+   * Step 2 — Verify the version column exists (expect "1"):
+   *   docker compose exec app1 php artisan tinker --execute="
+   *     echo \\App\\Models\\Inventory::where('product_id', 1)->value('version');
+   *   "
+   *
+   * Step 3 — Simulate a version conflict:
+   *   Open TWO terminals and run this concurrently:
+   *
+   *   Terminal 1: docker compose exec app1 php artisan tinker --execute="
+   *     \\App\\Models\\Inventory::where('product_id', 1)
+   *       ->where('version', 1)
+   *       ->update(['quantity' => 100, 'version' => 2]);
+   *     echo 'TX1 updated OK';
+   *   "
+   *
+   *   Terminal 2 (run immediately after): docker compose exec app1 php artisan tinker --execute="
+   *     \\App\\Models\\Inventory::where('product_id', 1)
+   *       ->where('version', 1)
+   *       ->update(['quantity' => 100, 'version' => 2]);
+   *     echo 'TX2 updated: ' . (\\DB::affectedRows() > 0 ? 'OK' : 'VERSION MISMATCH!');
+   *   "
+   *
+   *   Terminal 2 should print "VERSION MISMATCH!" because version 1 was
+   *   already changed to 2 by Terminal 1. This is the optimistic lock in action!
+   *
+   * Step 4 — Watch logs for automatic retries:
+   *   docker compose exec app1 php artisan tinker --execute="
+   *     app(\\App\\Services\\OptimisticInventoryService::class)
+   *       ->decrementStock({{cc_product_id}}, 1);
+   *     echo 'Done - check logs for retry messages\\n';
+   *   "
+   *
+   *   docker compose exec app1 grep 'Optimistic lock collision' storage/logs/laravel.log
+   *   Expected: Messages like "Optimistic lock collision on inventory #X (attempt 2/5)."
+   *   This proves retry mechanism works when version conflicts occur.
+   *
+   * ── Expected behavior ────────────────────────────────
+   *
+   *   Under low contention (single user):
+   *     - Optimistic locking: No retries needed, fast execution
+   *     - No DB locks held, readers never blocked
+   *
+   *   Under high contention (10+ concurrent users):
+   *     - Optimistic locking: Occasional retries with 10ms→160ms backoff
+   *     - Pessimistic locking: Locks cause serial execution, no retries
+   */
+
+  console.log("⚡ OPTIMISTIC LOCKING DEMO");
+  console.log("See pre-request script for step-by-step instructions.");
+  console.log("Product ID: " + bru.getVar("cc_product_id"));
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Product has inventory with version", function() {
+    expect(res.body.data.inventory).to.not.be.undefined;
+  });
+}

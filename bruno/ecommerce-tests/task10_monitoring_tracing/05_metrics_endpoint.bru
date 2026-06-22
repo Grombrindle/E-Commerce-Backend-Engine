@@ -1,0 +1,36 @@
+meta {
+  name: 5. Prometheus Metrics Endpoint
+  type: http
+}
+
+get {
+  url: {{base_url}}/api/v1/metrics
+  body: none
+  auth: none
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (typeof body === "string") {
+    // Prometheus text format — just show first few lines
+    const lines = body.split("\n").filter(l => l && !l.startsWith("#"));
+    console.log("📊 Prometheus Metrics (" + lines.length + " metrics):");
+    lines.slice(0, 15).forEach(line => console.log("  " + line));
+    if (lines.length > 15) {
+      console.log("  ... and " + (lines.length - 15) + " more");
+    }
+  } else {
+    console.log("📊 Metrics response:", JSON.stringify(body).slice(0, 500));
+  }
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response is not empty", function() {
+    const body = res.getBody();
+    expect(body).to.not.be.empty;
+  });
+}

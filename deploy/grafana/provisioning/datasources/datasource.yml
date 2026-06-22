@@ -1,0 +1,42 @@
+# ═══════════════════════════════════════════════════════════════════════
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║  Grafana Datasource Provisioning — E-Commerce Backend Engine        ║
+# ║  Task 10: Benchmarking & Bottleneck Analysis                        ║
+# ╚══════════════════════════════════════════════════════════════════════╝
+# ═══════════════════════════════════════════════════════════════════════
+#
+# This file is automatically loaded by Grafana on startup.
+# It registers Prometheus as a pre-configured data source so no
+# manual setup is needed.
+#
+# Usage:
+#   1. docker compose up -d prometheus grafana
+#   2. Open http://localhost:3000 (login: admin / admin)
+#   3. The Prometheus datasource is already configured ✓
+#   4. The e-commerce dashboard is already imported ✓
+# ═══════════════════════════════════════════════════════════════════════
+
+apiVersion: 1
+
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    orgId: 1
+    url: http://prometheus:9090
+    uid: prometheus
+    isDefault: true
+    version: 1
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+      queryTimeout: "30s"
+      httpMethod: "POST"
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: prometheus
+    secureJsonData: {}

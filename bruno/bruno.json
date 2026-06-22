@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "E-Commerce API — Parallel Programming Tests",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

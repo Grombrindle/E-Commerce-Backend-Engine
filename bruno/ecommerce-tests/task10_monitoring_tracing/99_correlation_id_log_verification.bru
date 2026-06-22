@@ -1,0 +1,51 @@
+meta {
+  name: ⚡ Verify Correlation ID in Logs (CLI Required)
+  type: http
+}
+
+get {
+  url: {{base_url}}/health
+  body: none
+  auth: none
+}
+
+headers {
+  X-Correlation-ID: {{test_correlation_id}}
+}
+
+script:pre-request {
+  /*
+   * ══════════════════════════════════════════════════════════════
+   * DISTRIBUTED TRACING — LOG VERIFICATION
+   * ══════════════════════════════════════════════════════════════
+   *
+   * After sending requests through the API, use the X-Correlation-ID
+   * to trace ALL related log entries across HTTP and queue jobs.
+   *
+   * ────── Step 1: Place an order and save correlation ID ──────
+   *   (Use auth + order or checkout requests first)
+   *
+   * ────── Step 2: Search logs for that ID ──────
+   *   grep "<correlation-id>" storage/logs/laravel*.log
+   *
+   * ────── Step 3: Verify trace across services ──────
+   *   You should see entries from:
+   *     ✓ HTTP request handler
+   *     ✓ Queue worker (ProcessOrder, GenerateInvoiceJob, etc.)
+   *     ✓ Email notification (SendOrderNotificationsJob)
+   *     ✓ Analytics recorder (RecordSaleAnalyticsJob)
+   *
+   * ────── Step 4: Docker logs ──────
+   *   docker compose logs app1 | grep "<correlation-id>"
+   *
+   * ────── Expected ──────
+   *   At least 4 log entries sharing the SAME correlation ID:
+   *   1 HTTP request + 3+ async job executions
+   */
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

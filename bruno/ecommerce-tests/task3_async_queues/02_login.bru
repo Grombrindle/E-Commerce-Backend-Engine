@@ -1,0 +1,30 @@
+meta {
+  name: 2. Login (if needed)
+  type: http
+}
+
+post {
+  url: {{base_url}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{async_user_email}}",
+    "password": "{{password}}"
+  }
+}
+
+script:post-response {
+  if (res.body.token) {
+    bru.setVar("async_token", res.body.token);
+  }
+}
+
+tests {
+  test("Login succeeded (200) or already registered (422 is okay)", function() {
+    const status = res.getStatus();
+    expect(status === 200 || status === 422).to.be.true;
+  });
+}

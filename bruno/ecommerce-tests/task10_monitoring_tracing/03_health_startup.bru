@@ -1,0 +1,27 @@
+meta {
+  name: 3. Health — Startup Probe
+  type: http
+}
+
+get {
+  url: {{base_url}}/health/startup
+  body: none
+  auth: none
+}
+
+script:post-response {
+  const body = res.getBody();
+  console.log("🚀 Startup: " + (body.status || "unknown"));
+  console.log("This endpoint is used by Docker's start_period check");
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Startup status is 'started'", function() {
+    const body = res.getBody();
+    expect(body.status).to.equal("started");
+  });
+}

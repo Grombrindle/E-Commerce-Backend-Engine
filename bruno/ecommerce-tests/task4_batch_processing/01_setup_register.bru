@@ -1,0 +1,31 @@
+meta {
+  name: 1. Setup — Register & Prepare
+  type: http
+}
+
+post {
+  url: {{base_url}}/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Batch Test User",
+    "email": "batch@test.com",
+    "password": "{{password}}",
+    "password_confirmation": "{{password}}"
+  }
+}
+
+script:post-response {
+  if (res.body.token) {
+    bru.setVar("batch_token", res.body.token);
+  }
+}
+
+tests {
+  test("Status is 201 or user already exists", function() {
+    expect(res.getStatus() === 201 || res.getStatus() === 422).to.be.true;
+  });
+}

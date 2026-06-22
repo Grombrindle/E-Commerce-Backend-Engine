@@ -1,0 +1,32 @@
+meta {
+  name: 3. Verify Grafana Dashboard Access
+  type: http
+}
+
+get {
+  url: {{grafana_url}}/api/health
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+script:post-response {
+  const body = res.getBody();
+  console.log("📈 Grafana: " + (body.message || "Running"));
+  console.log("DB: " + (body.database || "ok"));
+  console.log("Version: " + (body.version || "unknown"));
+  console.log("");
+  console.log("🌐 Open your browser:");
+  console.log("   http://localhost:3000");
+  console.log("   Login: admin / admin");
+  console.log("   Dashboard: E-Commerce Backend Engine");
+}
+
+tests {
+  test("Grafana is reachable", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

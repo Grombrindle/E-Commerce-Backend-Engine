@@ -1,0 +1,44 @@
+meta {
+  name: 3. Get Single Product (Cache + Stampede Protection)
+  type: http
+}
+
+get {
+  url: {{base_url}}/products/{{cached_product_id}}
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  const startTime = Date.now();
+  bru.setVar("task6_product_start", startTime.toString());
+}
+
+script:post-response {
+  const startTime = parseInt(bru.getVar("task6_product_start") || "0");
+  const duration = Date.now() - startTime;
+
+  console.log("📊 Single product response: " + duration + "ms");
+  console.log("✅ Product ID: " + bru.getVar("cached_product_id") + " fetched via cache");
+
+  // Save for comparison after invalidation
+  const body = res.getBody();
+  if (body.data) {
+    bru.setVar("cached_product_name", body.data.name || "(unknown)");
+    if (body.data.stock !== undefined) {
+      bru.setVar("cached_product_stock", body.data.stock.toString());
+    }
+  }
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Product data is returned", function() {
+    const body = res.getBody();
+    expect(body.success).to.be.true;
+    expect(body.data).to.not.be.undefined;
+  });
+}

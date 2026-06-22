@@ -1,0 +1,84 @@
+# ═══════════════════════════════════════════════════════════════════════
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║  Prometheus Configuration — E-Commerce Backend Engine              ║
+# ║  Task 10: Benchmarking & Bottleneck Analysis                        ║
+# ╚══════════════════════════════════════════════════════════════════════╝
+# ═══════════════════════════════════════════════════════════════════════
+#
+# This config is mounted into the Prometheus container in docker-compose.yml.
+# It scrapes metrics from all 3 Laravel app instances + Prometheus itself.
+#
+# Architecture:
+#   Prometheus pulls (/scrapes) metrics from each app's /api/v1/metrics
+#   endpoint every 15 seconds. Data is stored as time-series and queried
+#   by Grafana for visualization and alerting.
+#
+# Usage:
+#   docker compose up -d prometheus grafana
+#   Access Prometheus UI: http://localhost:9090
+#   Access Grafana UI:    http://localhost:3000 (admin/admin)
+#
+# Metric examples:
+#   ecommerce_http_requests_total{instance="app1:8000", method="GET", route="/api/v1/products", status_code="200"}
+#   ecommerce_queue_depth{instance="app2:8000", queue="invoices"}
+#   ecommerce_circuit_breaker_state{instance="app3:8000", service_name="stripe"}
+# ═══════════════════════════════════════════════════════════════════════
+
+global:
+  scrape_interval:     15s      # How often to scrape targets
+  evaluation_interval: 15s      # How often to evaluate rules
+  scrape_timeout:      10s      # Max time for a single scrape
+
+# ── Alerting (basic) ───────────────────────────────────
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # No Alertmanager configured yet. Alerts are handled via Grafana.
+
+# ── Rule Files (for recording & alerting rules) ────────
+rule_files:
+  # - "alerts.yml"
+
+# ── Scrape Targets ─────────────────────────────────────
+scrape_configs:
+
+  # ── Prometheus Self-Monitoring ──────────────────────
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ── Laravel App Instance 1 (weight=3 — 50% traffic) ─
+  - job_name: 'ecommerce-app1'
+    scrape_interval: 10s    # More frequent for app metrics
+    metrics_path: '/api/v1/metrics'
+    static_configs:
+      - targets: ['app1:8000']
+        labels:
+          instance: 'app1'
+          weight: '3'
+
+  # ── Laravel App Instance 2 (weight=2 — 33% traffic) ─
+  - job_name: 'ecommerce-app2'
+    scrape_interval: 10s
+    metrics_path: '/api/v1/metrics'
+    static_configs:
+      - targets: ['app2:8000']
+        labels:
+          instance: 'app2'
+          weight: '2'
+
+  # ── Laravel App Instance 3 (weight=1 — 17% traffic) ─
+  - job_name: 'ecommerce-app3'
+    scrape_interval: 10s
+    metrics_path: '/api/v1/metrics'
+    static_configs:
+      - targets: ['app3:8000']
+        labels:
+          instance: 'app3'
+          weight: '1'
+
+  # ── Redis (optional: if Redis exporter is added) ────
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']

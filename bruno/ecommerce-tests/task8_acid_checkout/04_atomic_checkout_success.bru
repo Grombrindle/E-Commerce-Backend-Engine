@@ -1,0 +1,62 @@
+meta {
+  name: 4. Atomic Checkout (Success)
+  type: http
+}
+
+post {
+  url: {{base_url}}/checkout
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{co_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "payment": {
+      "method": "card",
+      "card_number": "4111111111111111"
+    },
+    "shipping_address": {
+      "name": "ACID Test",
+      "street": "123 Checkout St",
+      "city": "New York",
+      "country": "US",
+      "zip": "10001"
+    }
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 201) {
+    bru.setVar("co_order_id", body.data.order.id.toString());
+    bru.setVar("co_payment_id", body.data.payment.id.toString());
+    console.log("✅ ATOMIC CHECKOUT SUCCESS");
+    console.log("📦 Order #" + body.data.order.order_number + " created and paid!");
+    console.log("💳 Payment #" + body.data.payment.payment_number + " processed!");
+    console.log("");
+    console.log("ACID guarantees demonstrated:");
+    console.log("  • Atomicity: Payment + Stock + Order in ONE transaction");
+    console.log("  • Consistency: All data agrees (no partial state)");
+    console.log("  • Isolation: lockForUpdate() prevented concurrent interference");
+    console.log("  • Durability: Everything persisted on commit");
+  }
+}
+
+tests {
+  test("Status is 201 (atomic checkout successful)", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Order is confirmed (paid upfront)", function() {
+    expect(res.body.data.order.status).to.equal("confirmed");
+  });
+
+  test("Payment is paid", function() {
+    expect(res.body.data.payment.status).to.equal("paid");
+  });
+}

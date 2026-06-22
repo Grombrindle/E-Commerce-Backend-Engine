@@ -1,0 +1,54 @@
+vars {
+  base_url: http://localhost:8080/api/v1
+  prometheus_url: http://localhost:9090
+  grafana_url: http://localhost:3000
+  password: password123
+  test_correlation_id: e2e-test-{{$randomUUID}}
+
+  # ── Task 1-5: User Credentials ──
+  user1_email: race1@test.com
+  user2_email: race2@test.com
+  user3_email: race3@test.com
+  rate_user_email: ratelimit@test.com
+  async_user_email: async@test.com
+  batch_date: 2026-06-05
+
+  # ── Task 6: Caching ──
+  admin_token: ""
+  cached_product_id: 1
+  cached_product_name: ""
+  cached_product_stock: ""
+  task6_first_call_ms: ""
+  task6_second_call_ms: ""
+
+  # ── Task 7: Concurrency Control ──
+  cc_user_email: concurrency@test.com
+  cc_product_id: 1
+  cc_quantity: 3
+  cc_pessimistic_result: ""
+  cc_optimistic_result: ""
+
+  # ── Task 8: ACID Checkout ──
+  checkout_user_email: checkout@test.com
+  checkout_card_number: "4111111111111111"
+  checkout_declined_card: "4111111111110002"
+  checkout_order_id: ""
+  checkout_payment_id: ""
+
+  # ── Task 9: k6 Stress Testing ──
+  k6_threadsholds_result: ""
+
+  # ── Task 10: Monitoring & Tracing ──
+  health_status: ""
+  health_hostname: ""
+  last_upstream: ""
+  dist_iteration: ""
+
+  # ── Populated by post-response scripts (Tasks 1-5) ──
+  token1: ""
+  token2: ""
+  token3: ""
+  product_id: ""
+  cart_item_id: ""
+  order_id: ""
+}

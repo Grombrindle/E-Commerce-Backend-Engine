@@ -1,0 +1,25 @@
+meta {
+  name: Cancel Order (Restore Stock)
+  type: http
+}
+
+post {
+  url: {{base_url}}/orders/{{order_id}}/cancel
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token1}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "reason": "Restoring stock for concurrent test"
+  }
+}
+
+assert {
+  res.status: eq 200
+}

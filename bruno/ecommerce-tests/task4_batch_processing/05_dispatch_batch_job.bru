@@ -1,0 +1,58 @@
+meta {
+  name: Dispatch Daily Sales Batch Job
+  type: http
+}
+
+post {
+  url: {{base_url}}/orders
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{batch_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "shipping_address": {
+      "name": "Batch Order 2",
+      "street": "123 Test St",
+      "city": "Test City",
+      "country": "US",
+      "zip": "10001"
+    }
+  }
+}
+
+script:pre-request {
+  /*
+   * ⚠️ LIMITATION: The batch job (DispatchDailySalesBatchJob) is a Laravel
+   * queued job, not an API endpoint. It's normally triggered by the scheduler
+   * or via Artisan CLI.
+   *
+   * In the bash script, it's dispatched via Tinker:
+   *   php artisan tinker
+   *   > \App\Jobs\DispatchDailySalesBatchJob::dispatch('2026-06-05');
+   *
+   * BRUNO WORKAROUND:
+   *   This request places an additional order to ensure there's batch data.
+   *   To actually trigger the batch job, you need CLI access:
+   *
+   *   Manual trigger (in project root):
+   *     docker compose exec app1 php artisan tinker
+   *     > \App\Jobs\DispatchDailySalesBatchJob::dispatch('2026-06-05');
+   *
+   *   Or from the host (if no Docker):
+   *     php artisan tinker
+   *     > \App\Jobs\DispatchDailySalesBatchJob::dispatch(date('Y-m-d'));
+   *
+   *   Then process the queue:
+   *     php artisan queue:work --stop-when-empty --queue=default,batch-processing
+   */
+}
+
+assert {
+  res.status: eq 201
+}

@@ -1,0 +1,58 @@
+meta {
+  name: 1. Run k6 Load Test (CLI Required)
+  type: http
+}
+
+get {
+  url: {{base_url}}/health
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  /*
+   * ══════════════════════════════════════════════════════════════
+   * TASK 9 — k6 Stress Testing
+   * ══════════════════════════════════════════════════════════════
+   *
+   * This folder documents how to run the k6 stress tests.
+   * Actual execution requires k6 CLI, not Bruno.
+   *
+   * ────── Prerequisites ──────
+   *   1. Docker services running: docker compose up -d
+   *   2. Users created:  docker compose exec app1 php artisan k6:setup-users
+   *   3. k6 installed:   brew install k6 (macOS) / apt install k6 (Linux)
+   *
+   * ────── Run the full test suite ──────
+   *   k6 run --out output-prometheus-remote=http://localhost:9090/api/v1/write \
+   *         k6/test-ecommerce.js
+   *
+   * ────── 10 Scenarios (100 VUs total) ──────
+   *   01-browse.js          — Browsing/caching (Task 6)
+   *   02-product-detail.js  — Cache stampede (Task 6)
+   *   03-cart.js            — Cart operations
+   *   04-order.js           — Race condition (Task 1)
+   *   05-auth.js            — Rate limiting (Task 2)
+   *   06-mixed.js           — End-to-end flow
+   *   07-checkout.js        — ACID checkout (Task 8)
+   *   08-race-condition.js  — lockForUpdate() (Task 1)
+   *   09-admin.js           — Admin operations
+   *   10-wave.js            — Random burst traffic
+   *
+   * ────── Run a single scenario ──────
+   *   k6 run --vus 10 --duration 30s k6/scenarios/04-order.js
+   *
+   * ────── Expected thresholds ──────
+   *   - P95 response time < 2s
+   *   - Error rate < 10%
+   *   - Race condition: 3+ succeed, 7+ blocked (proves locking works)
+   *   - Cache: P95 product detail < 100ms
+   *   - Async orders: P95 < 500ms
+   */
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

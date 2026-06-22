@@ -1,0 +1,36 @@
+meta {
+  name: Setup — Register
+  type: http
+}
+
+post {
+  url: {{base_url}}/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Rate Limit User",
+    "email": "{{rate_user_email}}",
+    "password": "{{password}}",
+    "password_confirmation": "{{password}}"
+  }
+}
+
+script:post-response {
+  if (res.body.token) {
+    bru.setVar("rate_token", res.body.token);
+  }
+  if (!res.body.token && res.getStatus() === 422) {
+    // User may already exist — try login
+    bru.setVar("try_login", "true");
+  }
+}
+
+tests {
+  test("Status is 201 or user already exists", function() {
+    const status = res.getStatus();
+    expect(status === 201 || status === 422).to.be.true;
+  });
+}

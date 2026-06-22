@@ -1,0 +1,40 @@
+meta {
+  name: 2. Register User
+  type: http
+}
+
+post {
+  url: {{base_url}}/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Checkout Test User",
+    "email": "checkout_test_{{$randomUUID}}@test.com",
+    "password": "password123",
+    "password_confirmation": "password123"
+  }
+}
+
+script:post-response {
+  if (res.body.data && res.body.data.token) {
+    bru.setVar("co_token", res.body.data.token);
+    console.log("✅ Token acquired for checkout test");
+  }
+}
+
+tests {
+  test("Status is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Token is present", function() {
+    expect(res.body.data.token).to.not.be.undefined;
+  });
+}

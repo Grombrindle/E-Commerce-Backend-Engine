@@ -1,0 +1,34 @@
+meta {
+  name: Setup — Register
+  type: http
+}
+
+post {
+  url: {{base_url}}/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Async Queue User",
+    "email": "{{async_user_email}}",
+    "password": "{{password}}",
+    "password_confirmation": "{{password}}"
+  }
+}
+
+script:post-response {
+  if (res.body.token) {
+    bru.setVar("async_token", res.body.token);
+  }
+  if (!res.body.token && res.getStatus() === 422) {
+    bru.setVar("try_async_login", "true");
+  }
+}
+
+tests {
+  test("Status is 201 or user already exists", function() {
+    expect(res.getStatus() === 201 || res.getStatus() === 422).to.be.true;
+  });
+}

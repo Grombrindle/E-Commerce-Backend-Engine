@@ -1,0 +1,30 @@
+meta {
+  name: Register User 2
+  type: http
+}
+
+post {
+  url: {{base_url}}/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Race User 2",
+    "email": "{{user2_email}}",
+    "password": "{{password}}",
+    "password_confirmation": "{{password}}"
+  }
+}
+
+script:post-response {
+  if (res.body.token) {
+    bru.setVar("token2", res.body.token);
+    bru.setVar("user2_id", res.body.user?.id || "");
+  }
+}
+
+assert {
+  res.status: eq 201
+}

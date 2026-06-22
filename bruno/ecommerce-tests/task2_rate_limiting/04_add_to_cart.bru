@@ -1,0 +1,26 @@
+meta {
+  name: Add Item to Cart
+  type: http
+}
+
+post {
+  url: {{base_url}}/cart/items
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{rate_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "product_id": {{rate_product_id}},
+    "quantity": 1
+  }
+}
+
+assert {
+  res.status: eq 201
+}

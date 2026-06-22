@@ -1,0 +1,38 @@
+meta {
+  name: Place Order (Seed Batch Data)
+  type: http
+}
+
+post {
+  url: {{base_url}}/orders
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{batch_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "shipping_address": {
+      "name": "Batch Test",
+      "street": "123 Test St",
+      "city": "Test City",
+      "country": "US",
+      "zip": "10001"
+    }
+  }
+}
+
+script:post-response {
+  const orderId = res.body.id || res.body.data?.id || res.body.order?.id;
+  if (orderId) {
+    bru.setVar("batch_order_id", orderId.toString());
+  }
+}
+
+assert {
+  res.status: eq 201
+}

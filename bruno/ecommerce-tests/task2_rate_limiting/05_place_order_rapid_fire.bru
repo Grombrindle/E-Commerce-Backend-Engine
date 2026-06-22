@@ -1,0 +1,66 @@
+meta {
+  name: ⚡ Place Order (Fire Rapidly x15)
+  type: http
+}
+
+post {
+  url: {{base_url}}/orders
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{rate_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "shipping_address": {
+      "name": "Rate Limit Test",
+      "street": "123 Test St",
+      "city": "Test City",
+      "country": "US",
+      "zip": "10001"
+    }
+  }
+}
+
+script:pre-request {
+  /*
+   * ⚠️ LIMITATION: Bruno runs requests sequentially.
+   *
+   * The bash script fires 15 requests simultaneously:
+   *   for i in $(seq 1 15); do curl ... &; done; wait
+   *
+   * TO TEST RATE LIMITING:
+   *   Option A — Manual rapid-fire:
+   *     1. Hit "Send" on this request as fast as you can 15 times
+   *     2. First ~10 should return 201/422
+   *     3. After the limit kicks in, you'll see 429
+   *
+   *   Option B — Use the bash wrapper:
+   *     ./bruno/run_concurrent.sh task2
+   *
+   *   Option C — In Bruno's Collection Runner:
+   *     1. Right-click this request → "Run Request"
+   *     2. Set "Iterations" = 15, "Delay" = 0ms
+   *     3. This still runs sequentially but tests the rate limiter
+   *        since each request counts against the per-minute quota
+   */
+}
+
+tests {
+  test("Response is either success (201/422) or rate-limited (429)", function() {
+    const status = res.getStatus();
+    expect(status === 201 || status === 422 || status === 429).to.be.true;
+  });
+
+  test("If 429, rate limiting is working", function() {
+    if (res.getStatus() === 429) {
+      console.log("✅ Rate limiting is ACTIVE");
+      const body = res.getBody();
+      console.log("Rate limit message:", body.error || body.message);
+    }
+  });
+}

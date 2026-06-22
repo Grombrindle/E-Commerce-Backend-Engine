@@ -1,0 +1,21 @@
+meta {
+  name: Get Products
+  type: http
+}
+
+get {
+  url: {{base_url}}/products
+  body: none
+  auth: none
+}
+
+script:post-response {
+  const productId = res.body.data?.[0]?.id || res.body[0]?.id || res.body.id;
+  if (productId) {
+    bru.setVar("product_id", productId.toString());
+  }
+}
+
+assert {
+  res.status: eq 200
+}

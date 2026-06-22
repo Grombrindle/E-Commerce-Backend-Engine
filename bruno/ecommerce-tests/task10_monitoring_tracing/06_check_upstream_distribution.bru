@@ -1,0 +1,49 @@
+meta {
+  name: 6. Load Distribution — Check Upstream Server
+  type: http
+}
+
+get {
+  url: {{base_url}}/health
+  body: none
+  auth: none
+}
+
+headers {
+  User-Agent: bruno-load-test
+}
+
+script:post-response {
+  const headers = res.getHeaders();
+  const upstream = headers["x-upstream"] || headers["X-Upstream"] || "(not set)";
+  console.log("🔄 Request handled by: " + upstream);
+  console.log("Run this request 10 times to see load distribution pattern");
+
+  // Track server counts across runs
+  const key = "upstream_" + upstream.replace(/[^a-zA-Z0-9]/g, "_");
+  const count = parseInt(bru.getVar("count_" + key) || "0") + 1;
+  bru.setVar("count_" + key, count.toString());
+
+  const total = parseInt(bru.getVar("total_requests") || "0") + 1;
+  bru.setVar("total_requests", total.toString());
+
+  // Log all counts
+  console.log("Distribution so far (total: " + total + "):");
+  // Note: Docker internal IPs (172.18.0.x) vary per environment.
+  // The X-Upstream header shows which container handled the request.
+  // Expected distribution: app1 ~50%, app2 ~33%, app3 ~17%
+  console.log("  ✓ Check X-Upstream header above for each request");
+  console.log("  ✓ Expected: app1 ~50%, app2 ~33%, app3 ~17%");
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("X-Upstream header is set (proxied by Nginx)", function() {
+    const headers = res.getHeaders();
+    const upstream = headers["x-upstream"] || headers["X-Upstream"];
+    expect(upstream).to.not.be.undefined;
+  });
+}

@@ -1,0 +1,37 @@
+meta {
+  name: 4. Distributed Tracing — Correlation ID
+  type: http
+}
+
+get {
+  url: {{base_url}}/health/ready
+  body: none
+  auth: none
+}
+
+headers {
+  X-Correlation-ID: e2e-test-correlation
+}
+
+script:post-response {
+  const headers = res.getHeaders();
+  const corrId = headers["x-correlation-id"] || "(not set)";
+  console.log("🔖 Correlation ID: " + corrId);
+  console.log("Set X-Correlation-ID header in request to trace through logs");
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("X-Correlation-ID header is echoed in response", function() {
+    const headers = res.getHeaders();
+    expect(headers["x-correlation-id"]).to.not.be.undefined;
+  });
+
+  test("Correlation ID matches the one we sent", function() {
+    const headers = res.getHeaders();
+    expect(headers["x-correlation-id"]).to.equal("e2e-test-correlation");
+  });
+}

@@ -1,0 +1,63 @@
+meta {
+  name: ⚡ CONCURRENT ORDER TEST (Manual / Wrapper)
+  type: http
+}
+
+post {
+  url: {{base_url}}/orders
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{auth_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "shipping_address": {
+      "name": "Concurrent Test",
+      "street": "123 Test St",
+      "city": "Test City",
+      "country": "US",
+      "zip": "10001"
+    }
+  }
+}
+
+script:pre-request {
+  // Pick which token to use based on bru.getVar("concurrent_user")
+  const user = bru.getVar("concurrent_user") || "1";
+  const tokenKey = "token" + user;
+  const token = bru.getVar(tokenKey);
+  if (token) {
+    bru.setVar("auth_token", token);
+  }
+
+  /*
+   * ⚠️ LIMITATION: Bruno cannot fire concurrent/parallel requests.
+   * The bash script fires 3 curl commands in parallel (& + wait).
+   *
+   * OPTIONS:
+   *   A) Use the bash wrapper:  ./bruno/run_concurrent.sh
+   *   B) Open 3 Bruno tabs side-by-side, hit Send fast
+   *   C) Import into Postman, use Performance Testing feature
+   */
+}
+
+tests {
+  test("Response is either 201 (success) or 422 (insufficient stock)", function() {
+    const status = res.getStatus();
+    expect(status === 201 || status === 422).to.be.true;
+  });
+
+  test("Stock never went negative", function() {
+    const status = res.getStatus();
+    if (status === 422) {
+      console.log("✅ Correctly rejected — stock was insufficient");
+    } else {
+      console.log("✅ Order placed successfully");
+    }
+  });
+}

@@ -1,0 +1,67 @@
+meta {
+  name: ⚡ Cache Stampede Test (Manual / Wrapper)
+  type: http
+}
+
+get {
+  url: {{base_url}}/products/{{cached_product_id}}
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  /*
+   * ⚠️ LIMITATION: Bruno runs requests sequentially.
+   *
+   * The real cache stampede test requires firing 50+ requests
+   * simultaneously to the same product. Only ONE should hit
+   * the database; the rest should get stale cache or wait.
+   *
+   * TO TEST STAMPEDE PROTECTION:
+   *
+   * Option A — Bash wrapper (recommended):
+   *   #!/bin/bash
+   *   for i in $(seq 1 50); do
+   *     curl -s -o /dev/null -w "%{http_code}\n" \
+   *       http://localhost:8080/api/v1/products/{{ID}} &
+   *   done
+   *   wait
+   *   # Check app logs: should see only 1 "Cache MISS" message
+   *   docker compose logs app1 | grep "Cache MISS" | wc -l
+   *
+   * Option B — k6 load test:
+   *   import http from 'k6/http';
+   *   export const options = { vus: 50, duration: '1s' };
+   *   export default function() {
+   *     http.get('http://localhost:8080/api/v1/products/{{ID}}');
+   *   }
+   *
+   * Option C — Manual (Bruno only):
+   *   1. First make a request to cache the product (warm it up)
+   *   2. Wait for TTL to expire (or manually flush cache)
+   *   3. Hit "Send" as fast as you can 10+ times
+   *   4. Check Laravel logs for number of Cache MISS entries
+   */
+
+  const iteration = parseInt(bru.getVar("stampede_iteration") || "0") + 1;
+  bru.setVar("stampede_iteration", iteration.toString());
+
+  // Record start time for duration tracking
+  bru.setVar("stampede_start", Date.now().toString());
+
+  if (iteration === 1) {
+    console.log("⚡ STAMPEDE TEST — Fire this request 10+ times rapidly");
+    console.log("☝️ Then check: docker compose logs app1 | grep 'Cache MISS'");
+  }
+}
+
+script:post-response {
+  const duration = Date.now() - parseInt(bru.getVar("stampede_start") || "0");
+  console.log("Request #" + bru.getVar("stampede_iteration") + " → " + res.getStatus() + " (" + duration + "ms)");
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

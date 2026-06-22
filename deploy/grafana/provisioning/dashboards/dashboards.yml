@@ -1,0 +1,25 @@
+# ═══════════════════════════════════════════════════════════════════════
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║  Grafana Dashboard Provisioning — E-Commerce Backend Engine         ║
+# ║  Task 10: Benchmarking & Bottleneck Analysis                        ║
+# ╚══════════════════════════════════════════════════════════════════════╝
+# ═══════════════════════════════════════════════════════════════════════
+#
+# This file automatically provisions dashboards into Grafana on startup.
+# Dashboards are loaded from the ./dashboards directory.
+# ═══════════════════════════════════════════════════════════════════════
+
+apiVersion: 1
+
+providers:
+  - name: 'E-Commerce Backend Engine'
+    orgId: 1
+    folder: 'E-Commerce'
+    folderUid: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

@@ -1,0 +1,55 @@
+meta {
+  name: ⚡ Distribution Test (Fire Multiple Requests)
+  type: http
+}
+
+get {
+  url: {{base_url}}/health
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  /*
+   * ⚠️ LIMITATION: Bruno runs requests sequentially.
+   *
+   * The bash script fires 60 requests and counts X-Upstream distribution.
+   * TO TEST DISTRIBUTION:
+   *
+   * Option A — Manual (Bruno Collection Runner):
+   *   1. Right-click "task5_load_distribution" folder
+   *   2. → "Run as Collection"
+   *   3. Set Iterations = 60, Delay = 0ms
+   *   4. After run, check the Runner's "Console" tab for upstream counts
+   *
+   * Option B — Bash wrapper:
+   *   ./bruno/run_concurrent.sh task5
+   */
+
+  // Track iteration count
+  let iteration = parseInt(bru.getVar("dist_iteration") || "0") + 1;
+  bru.setVar("dist_iteration", iteration.toString());
+}
+
+script:post-response {
+  const upstream = res.getHeaders()["x-upstream"] || res.getHeaders()["X-Upstream"];
+  const server = (upstream || "unknown").toString().split(":")[0];
+
+  let counts = {};
+  try {
+    counts = JSON.parse(bru.getVar("dist_counts") || "{}");
+  } catch(e) {}
+
+  counts[server] = (counts[server] || 0) + 1;
+  bru.setVar("dist_counts", JSON.stringify(counts));
+
+  const iteration = parseInt(bru.getVar("dist_iteration") || "1");
+  console.log("Request #" + iteration + " → " + server);
+  console.log("Current distribution: " + JSON.stringify(counts));
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

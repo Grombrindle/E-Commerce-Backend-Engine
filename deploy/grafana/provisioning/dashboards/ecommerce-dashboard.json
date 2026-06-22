@@ -1,0 +1,401 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "title": "E-Commerce Engine — Dashboard",
+  "description": "Clean, simple monitoring dashboard for the e-commerce backend. Tracks HTTP traffic, background queues, Redis cache, database transactions, and load distribution across all app instances.",
+  "uid": "ecommerce-full-monitoring",
+  "schemaVersion": 38,
+  "version": 5,
+  "tags": ["ecommerce", "laravel", "monitoring"],
+  "timezone": "browser",
+  "editable": true,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "type": "query",
+        "query": "label_values(up, instance)",
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "label": "App Instance",
+        "allValue": ".*",
+        "includeAll": true,
+        "multi": true,
+        "sort": 1
+      },
+      {
+        "name": "route",
+        "type": "query",
+        "query": "label_values(ecommerce_http_requests_total, route)",
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "label": "Route",
+        "allValue": ".*",
+        "includeAll": true,
+        "multi": true,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "1. System Health — Quick Overview",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "title": "Healthy Instances",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 1 },
+      "targets": [
+        { "expr": "count(up{instance=~\"$instance\"} == 1)", "legendFormat": "Up" }
+      ],
+      "description": "Shows how many of the 3 app instances are running and healthy. If this drops below 3, a server may have crashed. > This tests load balancing fault tolerance (Task 5).",
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "green", "value": 3 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Request Rate",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 1 },
+      "targets": [
+        { "expr": "sum(last_over_time(ecommerce_http_requests_total{instance=~\"$instance\"}[5m]))", "legendFormat": "req/5m" }
+      ],
+      "description": "Total API requests handled in the last 5 minutes across all app instances. Spikes indicate traffic bursts (e.g., load tests, flash sales). > Tracks overall system load (Tasks 1, 2, 5).",
+      "options": {
+        "colorMode": "none",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+    {
+      "title": "Error Count",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 1 },
+      "targets": [
+        { "expr": "sum(ecommerce_http_errors_total{instance=~\"$instance\"})", "legendFormat": "errors" }
+      ],
+      "description": "Total HTTP errors (4xx client + 5xx server errors). Green = 0 errors. Yellow = some 4xx (expected with rate limiting). Red = 5+ errors (possible bugs). > 4xx = rate limiting (Task 2), 5xx = real failures.",
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Avg Response Time",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 1 },
+      "targets": [
+        { "expr": "avg(ecommerce_http_request_duration_seconds{instance=~\"$instance\"})", "legendFormat": "avg" }
+      ],
+      "description": "Average response time across all API requests. Green = fast (<500ms). Yellow = slow (500ms-1s). Red = too slow (>1s). > Cached routes should be <100ms, async order dispatch <500ms (Tasks 3, 6).",
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 1.0 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Queue Backlog",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 1 },
+      "targets": [
+        { "expr": "sum(ecommerce_queue_depth{instance=~\"$instance\"})", "legendFormat": "Total" }
+      ],
+      "description": "Total pending jobs across all queues (default, invoices, notifications, analytics). Green = under 100. Yellow = 100-500. Red = over 500 (workers can't keep up). > Spikes mean orders are coming in faster than workers can process (Tasks 3, 4).",
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 500 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Cache Hit Ratio",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 1 },
+      "targets": [
+        { "expr": "avg(ecommerce_cache_hit_ratio{instance=~\"$instance\"})", "legendFormat": "Ratio" }
+      ],
+      "description": "Percentage of requests served from Redis cache vs hitting the database. Green = 95%+ (excellent). Yellow = 80-95%. Red = below 80% (cache miss storm). > Higher is better — it means the database is under less load (Task 6).",
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.8 },
+              { "color": "green", "value": 0.95 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "2. HTTP Traffic, Rate Limiting & Errors",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 },
+      "collapsed": false
+    },
+    {
+      "title": "Requests by Instance & Route",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "targets": [
+        { "expr": "ecommerce_http_requests_total{instance=~\"$instance\",route=~\"$route\"}", "legendFormat": "{{instance}} - {{route}}", "interval": "10s" }
+      ],
+      "description": "HTTP request counts broken down by app instance (app1, app2, app3) and API route (products, orders, cart, etc.). > Helps identify which endpoints receive the most traffic and whether Nginx is distributing load correctly across all 3 servers (Task 5).",
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+    {
+      "title": "Response Time by Route",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "targets": [
+        { "expr": "ecommerce_http_request_duration_seconds{instance=~\"$instance\",route=~\"$route\"}", "legendFormat": "{{instance}} - {{route}}" }
+      ],
+      "description": "How long each API route takes to respond. Fast routes (<100ms) = cached products. Medium (100-500ms) = orders with async dispatch. Slow (>500ms) = something is blocking. > Cached product lists should be ~2ms, order placement with async dispatch should be ~50ms (Task 6).",
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Errors by Status Code",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "targets": [
+        { "expr": "ecommerce_http_errors_total{instance=~\"$instance\"}", "legendFormat": "{{status_code}} - {{route}}" }
+      ],
+      "description": "HTTP error counts broken down by status code and route. 4xx errors = client issues (rate limiting at 429, stock at 422). 5xx errors = server bugs. > High 429 counts = rate limiting is working (Task 2). High 422 = stock running out (Task 1).",
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+    {
+      "title": "Rate-Limited Requests (429s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "targets": [
+        { "expr": "ecommerce_http_errors_total{status_code=\"429\",instance=~\"$instance\"}", "legendFormat": "{{route}}" }
+      ],
+      "description": "Requests that were rejected with HTTP 429 (Too Many Requests). Each spike means users hit the rate limit (10 orders/minute/user). > This confirms the rate limiting middleware is active and protecting the system from abuse (Task 2).",
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+    {
+      "title": "Total Requests vs Errors Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
+      "targets": [
+        { "expr": "sum(ecommerce_http_requests_total{instance=~\"$instance\"})", "legendFormat": "Total Requests" },
+        { "expr": "sum(ecommerce_http_errors_total{instance=~\"$instance\"})", "legendFormat": "Total Errors" }
+      ],
+      "description": "Overlays total requests with total errors on the same timeline. Spikes in errors that match request spikes = rate limiting (expected behavior). Errors without corresponding requests = real server issues. > Green area = healthy traffic. Red spikes need investigation.",
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [] } } }
+    },
+    {
+      "title": "3. Background Jobs & Queues (Tasks 3, 4)",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 29 },
+      "collapsed": false
+    },
+    {
+      "title": "Queue Depth by Queue",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 30 },
+      "targets": [
+        { "expr": "ecommerce_queue_depth{instance=~\"$instance\"}", "legendFormat": "{{queue}} - {{instance}}" }
+      ],
+      "description": "Number of pending jobs waiting to be processed per queue. Queues: default (order processing), invoices, notifications, analytics. > If depth keeps growing, queue workers can't keep up. Healthy = 0-10 jobs pending (Tasks 3, 4).",
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+    {
+      "title": "4. Redis Cache Performance (Task 6)",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 },
+      "collapsed": false
+    },
+    {
+      "title": "Cache Hit Ratio Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 39 },
+      "targets": [
+        { "expr": "ecommerce_cache_hit_ratio{instance=~\"$instance\"}", "legendFormat": "{{key_pattern}} - {{instance}}" }
+      ],
+      "description": "Cache efficiency over time. A hit ratio of 1.0 = every request is served from cache (fast). A drop to 0 = every request hits the database (slow). > Drops can mean: (1) cache TTL expired, (2) cache stampede (many requests miss simultaneously), or (3) cache was flushed after an inventory update (Task 6).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.8 },
+              { "color": "green", "value": 0.95 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Cache Hits vs Misses",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 39 },
+      "targets": [
+        { "expr": "ecommerce_cache_hits_total{instance=~\"$instance\"}", "legendFormat": "Hits - {{instance}}" },
+        { "expr": "ecommerce_cache_misses_total{instance=~\"$instance\"}", "legendFormat": "Misses - {{instance}}" }
+      ],
+      "description": "Raw counts of cache hits (data found in Redis) vs misses (data not found, fell through to database). Hits should far outnumber misses. > High miss counts = either cache TTL is too short, or the cache was recently flushed after product updates (Task 6).",
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+    {
+      "title": "5. Database & Transactions (Tasks 1, 7, 8)",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 47 },
+      "collapsed": false
+    },
+    {
+      "title": "Database Queries by Type",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 48 },
+      "targets": [
+        { "expr": "ecommerce_db_queries_total{instance=~\"$instance\"}", "legendFormat": "{{type}} - {{instance}}" }
+      ],
+      "description": "Database queries broken down by type (select, insert, update, delete). Select = product browsing (read-heavy). Insert/update = orders and inventory changes (write-heavy). > This helps identify if the system is read-heavy (many product views) or write-heavy (many orders).",
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+    {
+      "title": "Committed vs Rolled Back Transactions",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 48 },
+      "targets": [
+        { "expr": "ecommerce_db_transactions_total{instance=~\"$instance\"}", "legendFormat": "{{status}} - {{instance}}" }
+      ],
+      "description": "Database transaction outcomes. 'committed' = order placed successfully. 'rolled_back' = something failed mid-checkout. > High rollback rates = lock contention (two users ordering the same product simultaneously — Task 1) or payment failures (card declined — Task 8).",
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+    {
+      "title": "Slow Queries (>100ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 56 },
+      "targets": [
+        { "expr": "ecommerce_db_slow_queries_total{instance=~\"$instance\"}", "legendFormat": "{{table}}" }
+      ],
+      "description": "Queries that took more than 100ms to execute. Slow queries degrade API response times. Common causes: missing database indexes, N+1 query patterns, or lock waits from concurrent transactions (Task 1, Task 7). Note: with SQLite, queries are typically fast (<1ms) so this panel may show no data — that's expected and healthy.",
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+    {
+      "title": "6. Load Distribution Across Instances (Task 5)",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 64 },
+      "collapsed": false
+    },
+    {
+      "title": "Traffic Share by Instance",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 65 },
+      "targets": [
+        { "expr": "sum(ecommerce_http_requests_total) by (instance)", "legendFormat": "{{instance}}" }
+      ],
+      "description": "What percentage of total traffic each app instance handles. The Nginx load balancer is configured with a 3:2:1 weight ratio — app1 should get ~50%, app2 ~33%, app3 ~17%. > Note: all instances share the same Redis, so they report identical values. The Nginx weighted distribution IS working (proven by test scripts), but per-instance metrics would require per-instance Redis keys.",
+      "options": {
+        "pieType": "pie",
+        "reduceOptions": { "calcs": ["sum"] },
+        "legend": { "displayMode": "table", "placement": "right", "values": ["percent"] }
+      }
+    },
+    {
+      "title": "Response Time by Instance",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 65 },
+      "targets": [
+        { "expr": "avg(ecommerce_http_request_duration_seconds) by (instance)", "legendFormat": "{{instance}}" }
+      ],
+      "description": "Average response time per app instance. All 3 instances should have similar latency. If one instance is much slower, it may have resource contention (CPU/memory limits) or be processing heavier requests (Task 5).",
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Total Requests Handled",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 65 },
+      "targets": [
+        { "expr": "sum(ecommerce_http_requests_total) by (instance)", "legendFormat": "{{instance}}" }
+      ],
+      "description": "Total requests handled by each instance as a horizontal bar chart. Quickly compares load between app1 (should be highest at ~50%), app2 (~33%), and app3 (~17%) according to Nginx weights (Task 5).",
+      "options": {
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["sum"] },
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

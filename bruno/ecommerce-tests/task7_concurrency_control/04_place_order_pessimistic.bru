@@ -1,0 +1,43 @@
+meta {
+  name: 4. Place Order (Pessimistic Locking)
+  type: http
+}
+
+post {
+  url: {{base_url}}/orders
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{cc_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "shipping_address": {
+      "name": "Concurrency Test",
+      "street": "123 Test St",
+      "city": "Test City",
+      "country": "US",
+      "zip": "10001"
+    }
+  }
+}
+
+script:post-response {
+  const status = res.getStatus();
+  if (status === 201) {
+    console.log("✅ Order placed — lockForUpdate() serialized access");
+    bru.setVar("cc_order_id", res.body.data.id.toString());
+  } else if (status === 422) {
+    console.log("⚠️ Insufficient stock — lockForUpdate() prevented oversell!");
+  }
+}
+
+tests {
+  test("Status is 201 (success) or 422 (blocked)", function() {
+    expect([201, 422]).to.include(res.getStatus());
+  });
+}

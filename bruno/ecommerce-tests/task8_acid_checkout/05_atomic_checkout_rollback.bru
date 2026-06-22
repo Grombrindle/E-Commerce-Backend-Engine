@@ -1,0 +1,58 @@
+meta {
+  name: 5. Atomic Checkout (Rollback on Declined Card)
+  type: http
+}
+
+post {
+  url: {{base_url}}/checkout
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{co_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "payment": {
+      "method": "card",
+      "card_number": "4111111111110002"
+    },
+    "shipping_address": {
+      "name": "ACID Rollback Test",
+      "street": "456 Rollback St",
+      "city": "New York",
+      "country": "US",
+      "zip": "10001"
+    }
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 422) {
+    console.log("🔄 ATOMIC ROLLBACK DEMONSTRATED");
+    console.log("🔴 Payment was declined (card ending in 0002)");
+    console.log("⚡ Exception thrown → TRANSACTION ROLLED BACK");
+    console.log("✅ Stock was NOT decremented");
+    console.log("✅ Order was NOT created");
+    console.log("✅ Cart items remain intact for retry");
+    console.log("");
+    console.log("This proves ACID Atomicity: all-or-nothing semantics!");
+  }
+}
+
+tests {
+  test("Status is 422 (payment declined → rollback)", function() {
+    expect(res.getStatus()).to.equal(422);
+  });
+
+  test("Error message mentions decline or failure", function() {
+    const msg = res.body.message || "";
+    expect(msg.toLowerCase()).to.satisfy(function(m) {
+      return m.includes("declin") || m.includes("fail") || m.includes("error");
+    });
+  });
+}

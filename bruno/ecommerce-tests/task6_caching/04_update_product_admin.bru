@@ -1,0 +1,50 @@
+meta {
+  name: 4. Update Product (Admin — Triggers Cache Invalidation)
+  type: http
+}
+
+put {
+  url: {{base_url}}/admin/products/{{cached_product_id}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+script:pre-request {
+  /*
+   * ⚠️ Admin auth required. If there's no admin endpoint, use Tinker:
+   *   docker compose exec app1 php artisan tinker
+   *   > \App\Models\Product::find({{cached_product_id}})->update(['name' => 'Updated at ' . time()]);
+   *
+   * Then run request 05_get_product_after_update.bru to verify invalidation.
+   */
+}
+
+body:json {
+  {
+    "name": "Updated Product — {{$isoTimestamp}}",
+    "description": "This product was updated to test cache invalidation",
+    "price": 19.99,
+    "stock": 42
+  }
+}
+
+script:post-response {
+  console.log("✅ Product #" + bru.getVar("cached_product_id") + " updated — cache should be invalidated");
+  console.log("📝 The next GET request should fetch fresh data from the database");
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Product was updated successfully", function() {
+    const body = res.getBody();
+    expect(body.success).to.be.true;
+  });
+}

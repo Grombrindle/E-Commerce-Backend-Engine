@@ -1,0 +1,35 @@
+meta {
+  name: Verify Order Created
+  type: http
+}
+
+get {
+  url: {{base_url}}/orders
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{async_token}}
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Order list contains the placed order", function() {
+    const body = res.getBody();
+    const orderId = bru.getVar("async_order_id");
+    console.log("Looking for order ID:", orderId);
+
+    const orders = body.data || body.orders || body;
+    // Check if our order is in the list
+    const found = Array.isArray(orders)
+      ? orders.some(o => o.id?.toString() === orderId)
+      : body.id?.toString() === orderId;
+
+    console.log("Order found:", found);
+    expect(found).to.be.true;
+  });
+}

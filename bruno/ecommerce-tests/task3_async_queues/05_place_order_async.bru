@@ -1,0 +1,62 @@
+meta {
+  name: ⚡ Place Order (Measure Response Time)
+  type: http
+}
+
+post {
+  url: {{base_url}}/orders
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{async_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "shipping_address": {
+      "name": "Async Test",
+      "street": "123 Test St",
+      "city": "Test City",
+      "country": "US",
+      "zip": "10001"
+    }
+  }
+}
+
+script:pre-request {
+  // Record start time for response time measurement
+  const startTime = Date.now();
+  bru.setVar("async_start_time", startTime.toString());
+}
+
+script:post-response {
+  const startTime = parseInt(bru.getVar("async_start_time") || "0");
+  const duration = Date.now() - startTime;
+  console.log("Response time: " + duration + "ms");
+
+  const orderId = res.body.id || res.body.data?.id || res.body.order?.id;
+  const orderStatus = res.body.status || res.body.data?.status;
+  if (orderId) {
+    bru.setVar("async_order_id", orderId.toString());
+  }
+  if (orderStatus) {
+    bru.setVar("async_order_status", orderStatus);
+  }
+
+  bru.setVar("async_response_time_ms", duration.toString());
+}
+
+tests {
+  test("Status is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Response time is < 1000ms (async dispatch is working)", function() {
+    const duration = parseInt(bru.getVar("async_response_time_ms") || "9999");
+    console.log("Response time: " + duration + "ms (expected < 1000ms)");
+    expect(duration).to.be.lessThan(1000);
+  });
+}
