@@ -1,17 +1,4 @@
 #!/usr/bin/env bash
-# ═══════════════════════════════════════════════════════════════════════
-# test_task1_race_condition.sh
-# Task 1 — Concurrent Access & Data Integrity (Pessimistic Locking)
-#
-# Tests:
-#   1. Health check
-#   2. Register 3 users
-#   3. View product & check inventory
-#   4. Cart inventory reservation system (add, check, update, remove)
-#   5. Single user order placement flow
-#   6. CONCURRENT ORDER TEST — Fire simultaneous orders from 3 users
-#      on the same product, verify no oversell occurs
-# ═══════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -19,11 +6,12 @@ source "$SCRIPT_DIR/lib.sh"
 
 header "TASK 1 — RACE CONDITION & DATA INTEGRITY"
 
-# ── 1. Health Check ──────────────────────────────────────────────────
-header "1. Health Check"
+header "1. Setup — Health Check & Inventory Reset"
+
 wait_for_api
 
-# ── 2. Register 3 users ─────────────────────────────────────────────
+reset_inventory
+
 header "2. Register Users"
 
 step "Registering user 1 (race1@test.com)..."
@@ -32,7 +20,6 @@ if [ -n "$USER1_TOKEN" ]; then
     ok "User 1 registered. Token: ${USER1_TOKEN:0:20}..."
 else
     fail "Failed to register user 1"
-    # Try login
     USER1_TOKEN=$(login_user "race1@test.com")
     if [ -n "$USER1_TOKEN" ]; then
         ok "User 1 logged in (existing user). Token: ${USER1_TOKEN:0:20}..."
@@ -59,7 +46,6 @@ else
     [ -n "$USER3_TOKEN" ] && ok "User 3 logged in." || fail "Could not get token for user 3"
 fi
 
-# ── 3. View Products ────────────────────────────────────────────────
 header "3. Product & Inventory Check"
 
 TOKEN=$USER1_TOKEN
@@ -73,14 +59,11 @@ if [ -z "$PRODUCT_ID" ] || [ "$PRODUCT_ID" = "null" ] || [ "$PRODUCT_ID" = "0" ]
 fi
 ok "Found product ID: $PRODUCT_ID"
 
-# Get full product detail with inventory
 api_call GET "/products/$PRODUCT_ID"
 INITIAL_QTY=$(echo "$API_BODY" | parse_json_number "quantity")
 INITIAL_RESERVED=$(echo "$API_BODY" | parse_json_number "reserved_quantity")
 
-# Fallback: try to extract from nested inventory object
 if [ -z "$INITIAL_QTY" ] || [ "$INITIAL_QTY" = "null" ]; then
-    # Try extracting from nested JSON
     INVENTORY_JSON=$(echo "$API_BODY" | grep -o '"inventory"[[:space:]]*:[[:space:]]*{[^}]*}' | head -1)
     INITIAL_QTY=$(echo "$INVENTORY_JSON" | parse_json_number "quantity")
     INITIAL_RESERVED=$(echo "$INVENTORY_JSON" | parse_json_number "reserved_quantity")
@@ -88,7 +71,6 @@ fi
 
 echo -e "    Inventory: quantity=${INITIAL_QTY:-?}, reserved=${INITIAL_RESERVED:-?}"
 
-# Check if stock is available — warn user to re-seed if necessary
 if [ -z "${INITIAL_QTY:-}" ] || [ "${INITIAL_QTY:-0}" -eq 0 ]; then
     warn "Product has 0 stock! Run seeder to restore inventory:"
     warn "  docker_compose exec app1 php artisan db:seed"
@@ -103,7 +85,6 @@ fi
 
 ok "Product details retrieved."
 
-# ── 4. Cart Inventory Reservation Test ──────────────────────────────
 header "4. Cart Reservation System"
 
 step "4a. Adding 2 units to cart (user 1)..."
@@ -169,7 +150,6 @@ else
     warn "Skipping remove — no cart item (stock was 0)."
 fi
 
-# ── 5. Single User Order Flow ──────────────────────────────────────
 header "5. Single User Order Flow"
 
 step "5a. Add 1 unit to cart..."
@@ -209,7 +189,6 @@ if [ -n "$QTY_AFTER_ORDER" ] && [ -n "$INITIAL_QTY" ]; then
     fi
 fi
 
-# Cancel the order to restore stock for next tests
 step "5d. Cancel order (restores stock)..."
 TOKEN=$USER1_TOKEN
 api_call POST "/orders/${ORDER_ID}/cancel" '{"reason":"Restoring stock for concurrent test"}'
@@ -219,20 +198,17 @@ else
     fail "Could not cancel order. Status: $API_STATUS"
 fi
 
-# ── 6. CONCURRENT ORDER TEST — The Main Event ─────────────────────
 header "6. ⚡ CONCURRENT ORDER RACE CONDITION TEST"
 echo -e "    ${BOLD}Firing simultaneous orders from 3 users on the same product.${NC}"
 echo -e "    The system uses lockForUpdate() — only one should succeed per available unit."
 echo ""
 
-# Get current stock
 api_call GET "/products/$PRODUCT_ID"
 INVENTORY_JSON=$(echo "$API_BODY" | grep -o '"inventory"[[:space:]]*:[[:space:]]*{[^}]*}' | head -1)
 CURRENT_QTY=$(echo "$INVENTORY_JSON" | parse_json_number "quantity")
 CURRENT_RESERVED=$(echo "$INVENTORY_JSON" | parse_json_number "reserved_quantity")
 echo -e "    Current stock: quantity=${CURRENT_QTY}, reserved=${CURRENT_RESERVED}"
 
-# Each user adds 1 unit to cart, hoping to get the same unit
 step "User 1 adds item to cart..."
 TOKEN=$USER1_TOKEN
 add_to_cart "$PRODUCT_ID" 1 > /dev/null 2>&1
@@ -245,11 +221,14 @@ step "User 3 adds item to cart..."
 TOKEN=$USER3_TOKEN
 add_to_cart "$PRODUCT_ID" 1 > /dev/null 2>&1
 
-# Now fire 3 orders SIMULTANEOUSLY using background jobs
 step "Firing 3 concurrent order requests (all at once!)..."
 echo ""
 
-# Use a temp file to collect results
+local_error_mode="$(set +o | grep errexit)"
+set +e
+set +u
+set +o pipefail
+
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
@@ -267,24 +246,20 @@ fire_concurrent_order() {
         -w "%{http_code}" > "$TMPDIR/status_$id.txt" 2>/dev/null &
 }
 
-# Fire all 3 concurrently
 fire_concurrent_order 1 "$USER1_TOKEN"
 fire_concurrent_order 2 "$USER2_TOKEN"
 fire_concurrent_order 3 "$USER3_TOKEN"
 
-# Wait for all to complete
-wait
+sleep 3
 
-# Read results
 echo -e "    ┌────────────────────────────────────────────────────────┐"
 for i in 1 2 3; do
     STATUS=$(cat "$TMPDIR/status_$i.txt" 2>/dev/null || echo "000")
     BODY=$(cat "$TMPDIR/result_$i.json" 2>/dev/null || echo "{}")
-    SUCCESS=$(echo "$BODY" | parse_json_string "message" | head -c 40)
     if [ "$STATUS" = "201" ]; then
         echo -e "    │ ${GREEN}User $i: HTTP $STATUS — Order placed ✓${NC}       │"
     elif [ "$STATUS" = "422" ]; then
-        ERROR_MSG=$(echo "$BODY" | parse_json_string "error" | head -c 40)
+        ERROR_MSG=$(echo "$BODY" | parse_json_string "error" 2>/dev/null | head -c 40 || echo "")
         echo -e "    │ ${YELLOW}User $i: HTTP $STATUS — ${ERROR_MSG:-Insufficient stock}${NC} │"
     else
         echo -e "    │ ${RED}User $i: HTTP $STATUS — Unexpected${NC}            │"
@@ -292,16 +267,14 @@ for i in 1 2 3; do
 done
 echo -e "    └────────────────────────────────────────────────────────┘"
 
-# Verify stock never went negative
 api_call GET "/products/$PRODUCT_ID"
 INVENTORY_JSON=$(echo "$API_BODY" | grep -o '"inventory"[[:space:]]*:[[:space:]]*{[^}]*}' | head -1)
 FINAL_QTY=$(echo "$INVENTORY_JSON" | parse_json_number "quantity")
 FINAL_RESERVED=$(echo "$INVENTORY_JSON" | parse_json_number "reserved_quantity")
 
 echo ""
-step "Final inventory: quantity=${FINAL_QTY}, reserved=${FINAL_RESERVED}"
+step "Final inventory: quantity=${FINAL_QTY:-?}, reserved=${FINAL_RESERVED:-?}"
 
-# Calculate how many orders succeeded
 SUCCESS_COUNT=0
 for i in 1 2 3; do
     STATUS=$(cat "$TMPDIR/status_$i.txt" 2>/dev/null || echo "0")
@@ -310,10 +283,10 @@ for i in 1 2 3; do
     fi
 done
 
-if [ -n "$FINAL_QTY" ] && [ "$FINAL_QTY" -ge 0 ]; then
+if [ -n "${FINAL_QTY:-}" ] && [ "${FINAL_QTY:-0}" -ge 0 ]; then
     ok "Stock never went negative (final: ${FINAL_QTY}). Pessimistic locking WORKS!"
 else
-    fail "Stock went negative (${FINAL_QTY})! Race condition still present."
+    fail "Stock went negative (${FINAL_QTY:-unknown})! Race condition still present."
 fi
 
 if [ "$SUCCESS_COUNT" -le 1 ]; then
@@ -322,6 +295,11 @@ else
     warn "${SUCCESS_COUNT} orders succeeded. If stock ≥ 3 this is fine; otherwise verify lock integrity."
 fi
 
-# ── Summary ─────────────────────────────────────────────────────────
+if [ -n "$local_error_mode" ]; then
+    eval "$local_error_mode"
+fi
+set -u
+set -o pipefail
+
 print_summary "Task 1 — Race Condition & Data Integrity"
 [ "$FAIL_COUNT" -eq 0 ] && exit 0 || exit 1

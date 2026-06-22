@@ -1,0 +1,23 @@
+# ── Laravel Defaults ──────────────────────────────
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+auth.json
+*.log
+.DS_Store
+Thumbs.db
+
+# ── Project-specific ──────────────────────────────
+docs/
+k6/data/users.json
+dontupload/
+report_images/
+screenshots/

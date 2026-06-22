@@ -11,11 +11,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-/**
- * SendOrderNotificationsJob — Sends order confirmation to the user.
- *
- * Retries up to 5 times with 30-second backoff (handles SMTP timeouts).
- */
 class SendOrderNotificationsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;

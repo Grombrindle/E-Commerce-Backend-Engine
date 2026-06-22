@@ -7,18 +7,10 @@ use App\Http\Requests\Payment\ProcessPaymentRequest;
 use App\Services\PaymentService;
 use Illuminate\Http\Request;
 
-/**
- * PaymentController
- *
- * @POST /api/v1/payments          → process()
- * @GET  /api/v1/payments/{id}     → show()
- * @POST /api/v1/payments/webhook  → webhook() [public]
- */
 class PaymentController extends Controller
 {
     public function __construct(protected PaymentService $paymentService) {}
 
-    /** Process payment for an order. */
     public function process(ProcessPaymentRequest $request)
     {
         try {
@@ -33,7 +25,6 @@ class PaymentController extends Controller
         }
     }
 
-    /** Get payment details. */
     public function show(Request $request, int $id)
     {
         $payment = $request->user()
@@ -44,7 +35,6 @@ class PaymentController extends Controller
         return $this->success($payment);
     }
 
-    /** Handle payment gateway webhook. */
     public function webhook(Request $request)
     {
         $result = $this->paymentService->handleWebhook(

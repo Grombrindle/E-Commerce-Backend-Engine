@@ -12,7 +12,6 @@ class Cart extends Model
 
     protected $casts = ['expires_at' => 'datetime'];
 
-    // ── Relationships ──────────────────────────────────────────────────
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -28,7 +27,6 @@ class Cart extends Model
         return $this->hasMany(CartItem::class)->with('product.inventory');
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────
     public function getTotalAttribute(): float
     {
         return $this->items->sum(fn($item) => $item->quantity * $item->price);

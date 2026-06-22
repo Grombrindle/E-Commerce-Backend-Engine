@@ -1,5 +1,23 @@
 <?php
 
+// ═══════════════════════════════════════════════════════════════════════
+// BEFORE — Task 1 & Cart: No Reservation Check (isAvailable checks quantity only)
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Bad isAvailable() — ignores reserved_quantity, allowing oversell:
+//
+//  public function isAvailableBad(int $qty = 1): bool
+//  {
+//      if (!$this->inventory) return false;
+//      // ⚠ Only checks quantity, ignores reserved_quantity
+//      // Two users could each reserve 5 of 10 total stock
+//      return $this->inventory->quantity >= $qty;
+//  }
+//
+// ═══════════════════════════════════════════════════════════════════════
+// AFTER (current code): isAvailable() checks quantity - reserved_quantity
+// ═══════════════════════════════════════════════════════════════════════
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -34,14 +52,13 @@ class Product extends Model
         'images' => 'array',
     ];
 
-    // ── Scopes ─────────────────────────────────────────────────────────
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
     }
     public function scopeInStock($query)
     {
-        // Only show products with available quantity > 0
+
         return $query->whereHas('inventory', function ($q) {
             $q->whereRaw('quantity - reserved_quantity > 0');
         });
@@ -62,7 +79,6 @@ class Product extends Model
             ->when($max, fn($q) => $q->where('price', '<=', $max));
     }
 
-    // ── Relationships ──────────────────────────────────────────────────
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
@@ -83,10 +99,6 @@ class Product extends Model
         return $this->hasMany(CartItem::class);
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────
-    /**
-     * Check if the product has enough available stock (quantity - reserved).
-     */
     public function isAvailable(int $qty = 1): bool
     {
         if (!$this->inventory) {

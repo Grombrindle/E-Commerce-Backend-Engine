@@ -6,9 +6,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * AdminMiddleware — Allows only users with role='admin'.
- */
 class AdminMiddleware
 {
     public function handle(Request $request, Closure $next): Response

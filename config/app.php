@@ -38,6 +38,6 @@ return [
         Illuminate\View\ViewServiceProvider::class,
     ],
     'aliases' => Illuminate\Support\Facades\Facade::defaultAliases()->merge([
-        // custom aliases
+
     ])->toArray(),
 ];

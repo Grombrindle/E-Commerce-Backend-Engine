@@ -53,6 +53,8 @@ echo "🚀 Starting services..."
 php-fpm -D
 echo "   ✅ PHP-FPM started"
 
+mkdir -p /var/log/supervisor
+
 # Start Supervisor (manages queue workers)
 if [ -f /etc/supervisor/conf.d/supervisord.conf ]; then
     supervisord -c /etc/supervisor/conf.d/supervisord.conf 2>/dev/null || true

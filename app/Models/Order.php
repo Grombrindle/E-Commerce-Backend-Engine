@@ -12,7 +12,6 @@ class Order extends Model
 {
     use HasFactory;
 
-    // Status constants
     const STATUS_PENDING    = 'pending';
     const STATUS_CONFIRMED  = 'confirmed';
     const STATUS_PROCESSING = 'processing';
@@ -38,7 +37,6 @@ class Order extends Model
         'cancelled_at'     => 'datetime',
     ];
 
-    // ── Boot ───────────────────────────────────────────────────────────
     protected static function boot()
     {
         parent::boot();
@@ -50,11 +48,9 @@ class Order extends Model
         return 'ORD-' . strtoupper(substr(md5(uniqid()), 0, 8)) . '-' . date('Ymd');
     }
 
-    // ── Scopes ─────────────────────────────────────────────────────────
     public function scopePending($q)    { return $q->where('status', self::STATUS_PENDING); }
     public function scopeCancellable($q){ return $q->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED]); }
 
-    // ── Relationships ──────────────────────────────────────────────────
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -70,7 +66,6 @@ class Order extends Model
         return $this->hasOne(Payment::class);
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────
     public function isCancellable(): bool
     {
         return in_array($this->status, [self::STATUS_PENDING, self::STATUS_CONFIRMED]);

@@ -14,7 +14,6 @@ class CartItem extends Model
         'price'    => 'decimal:2',
     ];
 
-    // ── Relationships ──────────────────────────────────────────────────
     public function cart(): BelongsTo
     {
         return $this->belongsTo(Cart::class);
@@ -25,7 +24,6 @@ class CartItem extends Model
         return $this->belongsTo(Product::class);
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────
     public function getSubtotalAttribute(): float
     {
         return $this->quantity * $this->price;

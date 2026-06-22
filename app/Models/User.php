@@ -25,14 +25,11 @@ class User extends Authenticatable
         'address'           => 'array',
     ];
 
-    // ── Scopes ─────────────────────────────────────────────────────────
     public function scopeAdmins($query) { return $query->where('role', 'admin'); }
     public function scopeCustomers($query) { return $query->where('role', 'customer'); }
 
-    // ── Helpers ────────────────────────────────────────────────────────
     public function isAdmin(): bool { return $this->role === 'admin'; }
 
-    // ── Relationships ──────────────────────────────────────────────────
     public function cart(): HasOne
     {
         return $this->hasOne(Cart::class);

@@ -1,15 +1,4 @@
 #!/usr/bin/env bash
-# ═══════════════════════════════════════════════════════════════════════
-# test_task2_rate_limiting.sh
-# Task 2 — Resource Management & Capacity Control (Rate Limiting)
-#
-# Tests:
-#   1. Health check & user registration
-#   2. Fire 15 rapid order requests — first 10 should work,
-#      next 5 should get HTTP 429 (Too Many Requests)
-#   3. Test with a different user to confirm user-level isolation
-#   4. Test API rate limiter (60 req/min) on a non-order endpoint
-# ═══════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -17,7 +6,6 @@ source "$SCRIPT_DIR/lib.sh"
 
 header "TASK 2 — RATE LIMITING & CAPACITY CONTROL"
 
-# ── 1. Setup ─────────────────────────────────────────────────────────
 header "1. Setup"
 
 wait_for_api
@@ -35,7 +23,6 @@ else
     exit 1
 fi
 
-# Get a product
 step "Finding a product to order..."
 api_call GET /products
 PRODUCT_ID=$(echo "$API_BODY" | parse_json_number "id")
@@ -45,12 +32,10 @@ if [ -z "$PRODUCT_ID" ] || [ "$PRODUCT_ID" = "null" ] || [ "$PRODUCT_ID" = "0" ]
 fi
 ok "Found product ID: $PRODUCT_ID"
 
-# Add item to cart (we'll use this for order attempts)
 step "Adding item to cart for order tests..."
 add_to_cart "$PRODUCT_ID" 1 > /dev/null 2>&1
 ok "Item added to cart."
 
-# ── 2. Rapid Fire Rate Limit Test ────────────────────────────────────
 header "2. ⚡ Rate Limit Test — 15 Rapid Order Requests"
 echo -e "    The 'orders' throttle allows 10 requests per minute per user."
 echo -e "    Requests 1-10 should succeed (or 422 if cart empty after first order)."
@@ -60,7 +45,6 @@ echo ""
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
-# Fire 15 rapid requests
 for i in $(seq 1 15); do
     curl -s -X POST "${API_BASE}/orders" \
         -H "Content-Type: application/json" \
@@ -72,7 +56,6 @@ for i in $(seq 1 15); do
 done
 wait
 
-# Analyze results
 THROTTLED_COUNT=0
 SUCCESS_COUNT=0
 OTHER_COUNT=0
@@ -127,7 +110,6 @@ else
     warn "Check that 'throttle:orders' middleware is applied to POST /api/v1/orders"
 fi
 
-# ── 3. User-Level Isolation Test ────────────────────────────────────
 header "3. User-Level Rate Limit Isolation"
 
 step "Registering second user..."
@@ -141,7 +123,6 @@ if [ -z "$TOKEN2" ]; then
 else
     ok "Second user ready."
 
-    # Add item to cart for user 2
     TOKEN=$TOKEN2
     add_to_cart "$PRODUCT_ID" 1 > /dev/null 2>&1
 
@@ -159,7 +140,6 @@ else
     ok "User 2's requests went through (rate limit is per-user, not global)."
 fi
 
-# ── 4. API-Level Rate Limiter ──────────────────────────────────────
 header "4. API-Level Rate Limit (60 req/min)"
 
 step "Firing 5 quick requests to /auth/me (api limiter: 60 req/min)..."
@@ -173,7 +153,6 @@ for i in $(seq 1 5); do
 done
 ok "API rate limiter test complete (no throttle expected at 5 req)."
 
-# ── Summary ─────────────────────────────────────────────────────────
 print_summary "Task 2 — Rate Limiting & Capacity Control"
 
 if [ "$THROTTLED_COUNT" -gt 0 ]; then

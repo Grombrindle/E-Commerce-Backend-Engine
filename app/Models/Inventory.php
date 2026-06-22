@@ -10,18 +10,17 @@ class Inventory extends Model
     protected $fillable = ['product_id', 'quantity', 'reserved_quantity', 'low_stock_threshold'];
 
     protected $casts = [
-        'quantity'          => 'integer',
-        'reserved_quantity' => 'integer',
-        'low_stock_threshold'=> 'integer',
+        'quantity'           => 'integer',
+        'reserved_quantity'  => 'integer',
+        'low_stock_threshold' => 'integer',
+        'version'            => 'integer',
     ];
 
-    // ── Relationships ──────────────────────────────────────────────────
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────
     public function getAvailableQuantityAttribute(): int
     {
         return max(0, $this->quantity - $this->reserved_quantity);

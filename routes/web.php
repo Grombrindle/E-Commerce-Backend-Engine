@@ -12,11 +12,11 @@ use App\Models\Product;
 
 Route::get('/view-db', function () {
     $products = Product::with('inventory')->get();
-    
+
     $html = "<h1>قائمة المنتجات في قاعدة البيانات</h1>";
     $html .= "<table border='1' cellpadding='10' style='border-collapse: collapse;'>";
     $html .= "<tr><th>ID</th><th>الاسم</th><th>السعر</th><th>المخزون</th></tr>";
-    
+
     foreach ($products as $p) {
         $stock = $p->inventory ? $p->inventory->quantity : 0;
         $html .= "<tr>";
@@ -26,7 +26,7 @@ Route::get('/view-db', function () {
         $html .= "<td>" . $stock . "</td>";
         $html .= "</tr>";
     }
-    
+
     $html .= "</table>";
     return $html;
 });

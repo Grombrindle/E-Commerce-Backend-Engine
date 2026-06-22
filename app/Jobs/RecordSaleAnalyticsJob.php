@@ -11,12 +11,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-/**
- * RecordSaleAnalyticsJob — Records the sale in analytics/reporting tables.
- *
- * Runs on the 'analytics' queue (low priority).
- * Retries up to 2 times.
- */
 class RecordSaleAnalyticsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;

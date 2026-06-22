@@ -1,24 +1,8 @@
 #!/usr/bin/env bash
-# ═══════════════════════════════════════════════════════════════════════
-# run_all.sh — E-Commerce API Test Suite Orchestrator
-#
-# Runs all 5 task test scripts sequentially and provides a summary.
-#
-# Usage:
-#   ./run_all.sh                    # Run all tests
-#   ./run_all.sh --skip=5           # Skip Task 5 (load balancing)
-#   ./run_all.sh --only=1,3         # Only Tasks 1 and 3
-#   ./run_all.sh --help             # Show this help
-#
-# Environment:
-#   API_BASE    - Base URL (default: http://localhost:8080/api/v1)
-#   TIMEOUT     - curl timeout in seconds (default: 10)
-# ═══════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# ── Colors ────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -26,7 +10,6 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# ── Parse Arguments ──────────────────────────────────────────────────
 SHOW_HELP=false
 SKIP_LIST=()
 ONLY_LIST=()
@@ -83,7 +66,6 @@ fi
 should_run() {
     local task_num="$1"
 
-    # If --only is specified, only run tasks in the list
     if [ "${#ONLY_LIST[@]}" -gt 0 ]; then
         for n in "${ONLY_LIST[@]}"; do
             [ "$n" = "$task_num" ] && return 0
@@ -91,7 +73,6 @@ should_run() {
         return 1
     fi
 
-    # If --skip is specified, skip tasks in the list
     for n in "${SKIP_LIST[@]}"; do
         [ "$n" = "$task_num" ] && return 1
     done
@@ -99,7 +80,6 @@ should_run() {
     return 0
 }
 
-# ── Script Registry ──────────────────────────────────────────────────
 declare -A TASKS
 TASKS[1]="test_task1_race_condition.sh"
 TASKS[2]="test_task2_rate_limiting.sh"
@@ -114,7 +94,6 @@ TASK_NAMES[3]="Asynchronous Queues"
 TASK_NAMES[4]="Chunked Batch Processing"
 TASK_NAMES[5]="Nginx Load Balancing & Horizontal Scaling"
 
-# ── Print Banner ─────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}╔══════════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║${NC}  ${BOLD}E-Commerce Backend Engine — Parallel Programming Test Suite${NC}      ${CYAN}║${NC}"
@@ -123,7 +102,6 @@ echo -e "${CYAN}║${NC}  $(date)                    ${CYAN}║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# ── Run Tasks ────────────────────────────────────────────────────────
 OVERALL_PASS=0
 OVERALL_FAIL=0
 OVERALL_TOTAL=0
@@ -154,8 +132,6 @@ for i in 1 2 3 4 5; do
         DURATION=$((END_TIME - START_TIME))
         set -euo pipefail
 
-        # Parse pass/fail from the script's output (last lines)
-        # Each script uses the print_summary function which outputs "Passed: X  |  Failed: Y"
 
         if [ "$EXIT_CODE" -eq 0 ]; then
             echo -e "${GREEN}✅ Task $i completed successfully in ${DURATION}s${NC}"
@@ -169,7 +145,6 @@ for i in 1 2 3 4 5; do
     fi
 done
 
-# ── Overall Summary ─────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}╔══════════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║${NC}  ${BOLD}TEST SUITE SUMMARY${NC}                                              ${CYAN}║${NC}"

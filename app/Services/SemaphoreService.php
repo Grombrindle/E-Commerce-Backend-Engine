@@ -6,11 +6,7 @@ use Illuminate\Support\Facades\Redis;
 
 class SemaphoreService
 {
-    /**
-     * Atomically acquires a semaphore slot.
-     * Uses a Lua script to guarantee the check-and-increment is atomic
-     * (no race condition on the semaphore itself).
-     */
+
     public function acquire(string $key, int $maxConcurrent, int $ttlSeconds = 30): bool
     {
         $luaScript = <<<'LUA'
@@ -23,12 +19,14 @@ class SemaphoreService
         return 1
         LUA;
 
-        return (bool) Redis::eval($luaScript, 1, $key, $maxConcurrent, $ttlSeconds);
+        $result = (bool) Redis::eval($luaScript, 1, $key, $maxConcurrent, $ttlSeconds);
+
+        $this->recordSemaphoreMetrics($key, $maxConcurrent);
+        $this->recordMetric('semaphore_acquires', "{$key}|" . ($result ? 'acquired' : 'rejected'));
+
+        return $result;
     }
 
-    /**
-     * Release a semaphore slot (decrement counter, never below 0).
-     */
     public function release(string $key): void
     {
         $luaScript = <<<'LUA'
@@ -40,5 +38,42 @@ class SemaphoreService
         LUA;
 
         Redis::eval($luaScript, 1, $key);
+
+        $this->recordSemaphoreMetricsFromStored($key);
+    }
+
+    private function recordSemaphoreMetricsFromStored(string $key): void
+    {
+        try {
+            $maxConcurrent = (int) (Redis::hget('metrics:semaphore_max_concurrent', $key) ?: 0);
+            if ($maxConcurrent > 0) {
+                $this->recordSemaphoreMetrics($key, $maxConcurrent);
+            }
+        } catch (\Throwable $e) {
+
+        }
+    }
+
+    private function recordSemaphoreMetrics(string $key, int $maxConcurrent): void
+    {
+        try {
+            $current = (int) (Redis::get($key) ?: 0);
+            $ratio = $maxConcurrent > 0 ? min($current / $maxConcurrent, 1.0) : 0;
+
+            Redis::hset('metrics:semaphore_current_usage', $key, $current);
+            Redis::hset('metrics:semaphore_max_concurrent', $key, $maxConcurrent);
+            Redis::hset('metrics:semaphore_utilization_ratio', $key, $ratio);
+        } catch (\Throwable $e) {
+
+        }
+    }
+
+    private function recordMetric(string $key, string $labelValue): void
+    {
+        try {
+            Redis::hincrby("metrics:{$key}", $labelValue, 1);
+        } catch (\Throwable $e) {
+
+        }
     }
 }

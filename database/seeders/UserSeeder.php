@@ -10,7 +10,7 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // Admin user
+
         User::create([
             'name'     => 'Super Admin',
             'email'    => 'admin@ecommerce.test',
@@ -20,7 +20,6 @@ class UserSeeder extends Seeder
             'address'  => ['street' => '123 Admin St', 'city' => 'San Francisco', 'country' => 'US', 'zip' => '94105'],
         ]);
 
-        // Test customer
         User::create([
             'name'     => 'John Customer',
             'email'    => 'customer@ecommerce.test',
@@ -30,7 +29,6 @@ class UserSeeder extends Seeder
             'address'  => ['street' => '456 Customer Ave', 'city' => 'New York', 'country' => 'US', 'zip' => '10001'],
         ]);
 
-        // Additional fake customers
         User::factory()->count(18)->create();
 
         $this->command->info('✅ Users seeded (admin + customer + 18 fake users)');

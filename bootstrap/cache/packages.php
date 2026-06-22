@@ -41,4 +41,15 @@
       0 => 'Termwind\\Laravel\\TermwindServiceProvider',
     ),
   ),
+  'spatie/laravel-prometheus' => 
+  array (
+    'aliases' => 
+    array (
+      'Prometheus' => 'Spatie\\Prometheus\\Facades\\Prometheus',
+    ),
+    'providers' => 
+    array (
+      0 => 'Spatie\\Prometheus\\PrometheusServiceProvider',
+    ),
+  ),
 );

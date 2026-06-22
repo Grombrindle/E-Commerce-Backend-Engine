@@ -2,9 +2,6 @@
 
 namespace App\Http\Controllers;
 
-/**
- * Base Controller with JSON response helpers.
- */
 abstract class Controller
 {
     protected function success($data = null, string $message = 'Success', int $status = 200)

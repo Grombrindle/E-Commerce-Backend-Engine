@@ -11,12 +11,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-/**
- * GenerateInvoiceJob — Generates and stores a PDF invoice for an order.
- *
- * Dispatched asynchronously after order placement.
- * Retries up to 3 times on failure.
- */
 class GenerateInvoiceJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;

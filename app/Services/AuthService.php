@@ -7,20 +7,15 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
-/**
- * AuthService — Handles user registration, login, logout.
- */
 class AuthService
 {
-    /**
-     * Register a new customer account.
-     */
+
     public function register(array $data): array
     {
         $user = User::create([
             'name'     => $data['name'],
             'email'    => $data['email'],
-            'password' => $data['password'], // hashed via model cast
+            'password' => $data['password'], 
             'phone'    => $data['phone']   ?? null,
             'address'  => $data['address'] ?? null,
             'role'     => 'customer',
@@ -31,11 +26,6 @@ class AuthService
         return ['user' => $user, 'token' => $token];
     }
 
-    /**
-     * Login existing user and issue token.
-     *
-     * @throws ValidationException
-     */
     public function login(string $email, string $password, string $deviceName = 'API'): array
     {
         $user = User::where('email', $email)->first();
@@ -46,7 +36,6 @@ class AuthService
             ]);
         }
 
-        // Revoke old tokens (optional: keep only last N)
         $user->tokens()->where('name', $deviceName)->delete();
 
         $token = $user->createToken($deviceName, ['*'], now()->addDays(30))->plainTextToken;
@@ -54,17 +43,11 @@ class AuthService
         return ['user' => $user, 'token' => $token];
     }
 
-    /**
-     * Revoke current token.
-     */
     public function logout(User $user): void
     {
         $user->currentAccessToken()->delete();
     }
 
-    /**
-     * Update user profile.
-     */
     public function updateProfile(User $user, array $data): User
     {
         $user->update(array_filter([
@@ -76,11 +59,6 @@ class AuthService
         return $user->fresh();
     }
 
-    /**
-     * Change user password.
-     *
-     * @throws ValidationException
-     */
     public function changePassword(User $user, string $currentPassword, string $newPassword): void
     {
         if (!Hash::check($currentPassword, $user->password)) {
@@ -90,7 +68,7 @@ class AuthService
         }
 
         $user->update(['password' => $newPassword]);
-        // Revoke all tokens so user has to re-login
+
         $user->tokens()->delete();
     }
 }

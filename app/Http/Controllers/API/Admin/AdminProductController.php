@@ -10,15 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
-/**
- * Admin ProductController (CRUD)
- *
- * @GET    /api/v1/admin/products       → index()
- * @POST   /api/v1/admin/products       → store()
- * @GET    /api/v1/admin/products/{id}  → show()
- * @PUT    /api/v1/admin/products/{id}  → update()
- * @DELETE /api/v1/admin/products/{id}  → destroy()
- */
 class AdminProductController extends Controller
 {
     public function index(Request $request)
@@ -38,7 +29,6 @@ class AdminProductController extends Controller
 
         $product = Product::create($data);
 
-        // Create inventory record
         Inventory::create([
             'product_id'          => $product->id,
             'quantity'            => $request->initial_stock ?? 0,

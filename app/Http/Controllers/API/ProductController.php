@@ -1,28 +1,38 @@
 <?php
 
+// ═══════════════════════════════════════════════════════════════════════
+// BEFORE — Task 6: No Caching (Every request hits DB)
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Bad index() — no caching layer, every request queries DB:
+//
+//  public function indexBad(Request $request)
+//  {
+//      // ⚠ Every request hits the database, even identical queries
+//      $products = Product::active()->with('category', 'inventory')
+//          ->when($request->search, fn($q) => $q->search($request->search))
+//          ->paginate($request->per_page ?? 20);
+//      return $this->paginated($products);
+//  }
+//
+// ═══════════════════════════════════════════════════════════════════════
+// AFTER (current code): CachedProductService with tag-based caching + stampede prevention
+// ═══════════════════════════════════════════════════════════════════════
+
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Services\CachedProductService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * ProductController — Public product browsing.
- *
- * @GET /api/v1/products        → index()
- * @GET /api/v1/products/{id}   → show()
- */
 class ProductController extends Controller
 {
-    /**
-     * List products with search, filters, and pagination.
-     * Results cached for 5 minutes.
-     */
-    /**
-     * List products with search, filters, and pagination.
-     * Results cached for 5 minutes.
-     */
+    public function __construct(protected CachedProductService $cachedProductService)
+    {
+    }
+
     public function index(Request $request)
     {
         $request->validate([
@@ -35,54 +45,15 @@ class ProductController extends Controller
             'per_page' => 'nullable|integer|between:1,100',
         ]);
 
-        $cacheKey = 'products:' . md5(serialize($request->all()));
-
-        $products = Cache::tags(['products'])->remember($cacheKey, 300, function () use ($request) {
-            $query = Product::active()
-                ->with(['category:id,name,slug', 'inventory:product_id,quantity,reserved_quantity'])
-                ->when($request->search, fn($q) => $q->search($request->search))
-                ->when($request->category, fn($q) => $q->byCategory($request->category))
-                ->when(
-                    $request->min_price || $request->max_price,
-                    fn($q) => $q->priceBetween($request->min_price, $request->max_price)
-                )
-                ->when($request->boolean('in_stock'), fn($q) => $q->inStock());
-
-            switch ($request->sort) {
-                case 'price_asc':
-                    $query->orderBy('price');
-                    break;
-                case 'price_desc':
-                    $query->orderByDesc('price');
-                    break;
-                case 'name':
-                    $query->orderBy('name');
-                    break;
-                default:
-                    $query->orderByDesc('created_at');
-            }
-
-            return $query->paginate($request->per_page ?? 20);
-        });
+        $products = $this->cachedProductService->getProductList($request);
 
         return $this->paginated($products);
     }
 
-    /**
-     * Get single product detail. Cached for 10 minutes.
-     */
     public function show(int $id)
     {
-        $product = Cache::tags(['products'])->remember(
-            "product:{$id}",
-            600,
-            fn() =>
-            Product::active()
-                ->with(['category:id,name,slug', 'inventory'])
-                ->findOrFail($id)
-        );
+        $product = $this->cachedProductService->getProductDetail($id);
 
         return $this->success($product);
     }
 }
-

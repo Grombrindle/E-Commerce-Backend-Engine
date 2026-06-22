@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-# ═══════════════════════════════════════════════════════════════════════
-# test_task3_async_queues.sh
-# Task 3 — Asynchronous Queues
-#
-# Tests:
-#   1. Place an order and verify immediate HTTP 201 response
-#   2. Check Redis queue lengths for dispatched jobs
-#   3. Check container logs for job processing evidence
-#   4. Verify response time is fast (~100ms, not blocked by sync work)
-# ═══════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -16,10 +6,12 @@ source "$SCRIPT_DIR/lib.sh"
 
 header "TASK 3 — ASYNCHRONOUS QUEUES"
 
-# ── 1. Setup ─────────────────────────────────────────────────────────
-header "1. Setup"
+header "1. Setup — Health Check & Inventory Reset"
 
 wait_for_api
+
+reset_inventory
+
 
 step "Registering test user..."
 TOKEN=$(register_user "async@test.com" "Async Queue User")
@@ -50,7 +42,6 @@ INITIAL_QTY=$(echo "$INVENTORY_JSON" | parse_json_number "quantity")
 echo -e "    Initial quantity: ${INITIAL_QTY:-?}"
 ok "Ready."
 
-# ── 2. Place Order & Measure Response Time ─────────────────────────
 header "2. Async Dispatch Timing Test"
 echo -e "    The controller dispatches 3+ jobs to Redis queues and returns"
 echo -e "    immediately. Response should come back in ~100ms, not ~3 seconds."
@@ -90,17 +81,14 @@ else
     warn "Check that OrderService dispatches jobs instead of calling services directly."
 fi
 
-# ── 3. Check Redis Queue Lengths ────────────────────────────────────
 header "3. Redis Queue Lengths"
 echo -e "    Checking Redis queues for dispatched jobs..."
 echo ""
 
-# Check if redis-cli is available
 if command -v redis-cli &> /dev/null; then
     REDIS_HOST="${REDIS_HOST:-localhost}"
     REDIS_PORT="${REDIS_PORT:-6379}"
 
-    # Try connecting to Redis
     if redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping 2>/dev/null | grep -q "PONG"; then
         ok "Redis is accessible at ${REDIS_HOST}:${REDIS_PORT}"
 
@@ -121,15 +109,12 @@ else
     warn "Check queues manually: docker compose exec redis redis-cli 'LLEN queues:invoices'"
 fi
 
-# ── 4. Check Container Logs for Job Processing ─────────────────────
 header "4. Worker Log Evidence"
 
 step "Checking docker logs for job processing..."
 if command -v docker &> /dev/null; then
-    # Check if we can access docker logs
     if docker_compose ps 2>/dev/null | grep -q "app1"; then
 
-        # Jobs write to storage/logs/laravel.log, not stdout. Must use exec to read it.
         echo -e "    ${CYAN}── Invoice Jobs (laravel.log) ──${NC}"
         docker_compose exec -T app1 grep -i "invoice" storage/logs/laravel.log 2>/dev/null | tail -5 || echo "    (no invoice entries in laravel.log)"
 
@@ -142,7 +127,6 @@ if command -v docker &> /dev/null; then
         echo -e "    ${CYAN}── ProcessOrder Jobs (laravel.log) ──${NC}"
         docker_compose exec -T app1 grep -i "ProcessOrder\|Processing order" storage/logs/laravel.log 2>/dev/null | tail -5 || echo "    (no ProcessOrder entries)"
 
-        # General queue activity from stdout (queue worker logs there)
         echo -e "    ${CYAN}── Queue Worker Activity (stdout) ──${NC}"
         docker_compose logs app1 --tail=30 2>/dev/null | grep -i "queue\|job\|dispatch\|processed\|Processing" || echo "    (no recent queue activity in stdout)"
 
@@ -155,7 +139,6 @@ else
     warn "Docker not available on host. Skipping log check."
 fi
 
-# ── 5. Check That Order Was Actually Created ──────────────────────
 header "5. Order Verification"
 
 step "Fetching order list..."
@@ -167,7 +150,6 @@ else
     fail "Could not retrieve orders."
 fi
 
-# ── Summary ─────────────────────────────────────────────────────────
 print_summary "Task 3 — Asynchronous Queues"
 
 echo -e "  ${GREEN}✓${NC} Response time: ${DURATION_MS}ms (should be < 1000ms)"

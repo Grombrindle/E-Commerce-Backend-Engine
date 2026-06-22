@@ -9,14 +9,6 @@ use App\Services\OrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Admin OrderController
- *
- * @GET /api/v1/admin/orders              → index()
- * @GET /api/v1/admin/orders/{id}         → show()
- * @PUT /api/v1/admin/orders/{id}/status  → updateStatus()
- * @GET /api/v1/admin/orders/stats        → stats()
- */
 class AdminOrderController extends Controller
 {
     public function __construct(protected OrderService $orderService) {}
@@ -59,11 +51,16 @@ class AdminOrderController extends Controller
 
     public function stats()
     {
+
+        $todaySql = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite'
+            ? "DATE(created_at) = DATE('now')"
+            : "DATE(created_at) = CURDATE()";
+
         $stats = DB::select("
             SELECT
                 COUNT(*) as total_orders,
-                SUM(CASE WHEN status != 'cancelled' THEN total ELSE 0 END) as total_revenue,
-                SUM(CASE WHEN DATE(created_at) = CURDATE() THEN 1 ELSE 0 END) as orders_today,
+                COALESCE(SUM(CASE WHEN status != 'cancelled' THEN total ELSE 0 END), 0) as total_revenue,
+                SUM(CASE WHEN {$todaySql} THEN 1 ELSE 0 END) as orders_today,
                 SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_orders,
                 SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_orders,
                 AVG(CASE WHEN status != 'cancelled' THEN total ELSE NULL END) as avg_order_value

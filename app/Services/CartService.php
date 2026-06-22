@@ -1,5 +1,38 @@
 <?php
 
+// ═══════════════════════════════════════════════════════════════════════
+// BEFORE — Task 1 & Cart: No Stock Reservation
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Bad addItem() — does NOT reserve stock, items can be oversold:
+//
+//  public function addItemBad(User $user, int $productId, int $quantity): CartItem
+//  {
+//      $product = Product::active()->with('inventory')->findOrFail($productId);
+//      if (!$product->isAvailable($quantity)) {
+//          throw new RuntimeException('Not enough stock.');
+//      }
+//      $cart = $this->getOrCreateCart($user);
+//      $existing = CartItem::where('cart_id', $cart->id)
+//          ->where('product_id', $productId)->first();
+//      if ($existing) {
+//          // ⚠ No reservation adjustment — just updates quantity
+//          $existing->update(['quantity' => $existing->quantity + $quantity]);
+//          return $existing;
+//      }
+//      // ⚠ Creates cart item WITHOUT reserving stock
+//      return CartItem::create([
+//          'cart_id' => $cart->id,
+//          'product_id' => $productId,
+//          'quantity' => $quantity,
+//          'price' => $product->price,
+//      ]);
+//  }
+//
+// ═══════════════════════════════════════════════════════════════════════
+// AFTER (current code): reserveStock() + releaseReservation() in DB::transaction()
+// ═══════════════════════════════════════════════════════════════════════
+
 namespace App\Services;
 
 use App\Models\Cart;
@@ -8,9 +41,6 @@ use App\Models\Product;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
-/**
- * CartService — Manages shopping cart lifecycle.
- */
 class CartService
 {
     public function __construct(
@@ -18,9 +48,6 @@ class CartService
     ) {
     }
 
-    /**
-     * Get or create a cart for the user.
-     */
     public function getOrCreateCart(User $user): Cart
     {
         return Cart::firstOrCreate(
@@ -29,17 +56,10 @@ class CartService
         );
     }
 
-    /**
-     * Add item to cart. If item exists, increments quantity.
-     * Reserves stock after successful addition.
-     *
-     * @throws \RuntimeException
-     */
     public function addItem(User $user, int $productId, int $quantity): CartItem
     {
         $product = Product::active()->with('inventory')->findOrFail($productId);
 
-        // Check against available stock (quantity - reserved)
         if (!$product->isAvailable($quantity)) {
             throw new \RuntimeException(
                 "Product '{$product->name}' does not have enough stock."
@@ -60,9 +80,8 @@ class CartService
                 );
             }
 
-            // Update quantity and adjust reservation
             $item = DB::transaction(function () use ($existing, $quantity, $newQty) {
-                // Reserve only the additional quantity
+
                 $this->inventoryService->reserveStock($existing->product_id, $quantity);
                 $existing->update(['quantity' => $newQty]);
                 return $existing->fresh(['product']);
@@ -71,7 +90,6 @@ class CartService
             return $item;
         }
 
-        // New item: create cart item and reserve stock atomically
         return DB::transaction(function () use ($cart, $productId, $quantity, $product) {
             $this->inventoryService->reserveStock($productId, $quantity);
 
@@ -79,22 +97,16 @@ class CartService
                 'cart_id' => $cart->id,
                 'product_id' => $productId,
                 'quantity' => $quantity,
-                'price' => $product->price, // snapshot current price
+                'price' => $product->price, 
             ]);
         });
     }
 
-    /**
-     * Update item quantity. Adjusts reservation accordingly.
-     *
-     * @throws \RuntimeException
-     */
     public function updateItem(User $user, int $itemId, int $quantity): CartItem
     {
         $cart = $this->getOrCreateCart($user);
         $item = CartItem::where('cart_id', $cart->id)->findOrFail($itemId);
 
-        // Check availability for the new quantity
         if (!$item->product->isAvailable($quantity)) {
             throw new \RuntimeException("Requested quantity not available.");
         }
@@ -104,10 +116,10 @@ class CartService
         DB::transaction(function () use ($item, $oldQty, $quantity) {
             $diff = $quantity - $oldQty;
             if ($diff > 0) {
-                // Increasing quantity → reserve more
+
                 $this->inventoryService->reserveStock($item->product_id, $diff);
             } elseif ($diff < 0) {
-                // Decreasing quantity → release some
+
                 $this->inventoryService->releaseReservation($item->product_id, abs($diff));
             }
 
@@ -117,9 +129,6 @@ class CartService
         return $item->fresh(['product']);
     }
 
-    /**
-     * Remove single item and release its reservation.
-     */
     public function removeItem(User $user, int $itemId): void
     {
         $cart = $this->getOrCreateCart($user);
@@ -131,9 +140,6 @@ class CartService
         });
     }
 
-    /**
-     * Clear entire cart and release all reservations.
-     */
     public function clearCart(User $user): void
     {
         $cart = Cart::where('user_id', $user->id)->first();
@@ -148,9 +154,6 @@ class CartService
         });
     }
 
-    /**
-     * Get cart with items and totals.
-     */
     public function getCart(User $user): array
     {
         $cart = Cart::where('user_id', $user->id)
@@ -173,11 +176,6 @@ class CartService
         ];
     }
 
-    /**
-     * Validate all cart items are still available before checkout.
-     *
-     * @throws \RuntimeException
-     */
     public function validateForCheckout(Cart $cart): void
     {
         foreach ($cart->activeItems as $item) {

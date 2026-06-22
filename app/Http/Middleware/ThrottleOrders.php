@@ -7,10 +7,6 @@ use Illuminate\Cache\RateLimiter;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * ThrottleOrders — Max 10 order placements per minute per user.
- * Prevents abuse under high concurrency.
- */
 class ThrottleOrders
 {
     public function __construct(protected RateLimiter $limiter) {}

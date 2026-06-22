@@ -22,7 +22,7 @@ class ProcessPaymentRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        // Strip spaces from card number
+
         if ($this->card_number) {
             $this->merge(['card_number' => str_replace(' ', '', $this->card_number)]);
         }

@@ -1,7 +1,7 @@
 # ────────────────────────────────────────────────────────
 # Dockerfile — Laravel E-Commerce API (PHP 8.2)
 # ────────────────────────────────────────────────────────
-FROM php:8.2-fpm-alpine
+FROM php:8.3-fpm-alpine
 
 # ── System Dependencies ───────────────────────────────
 RUN apk add --no-cache \
@@ -34,9 +34,19 @@ RUN apk add --no-cache $PHPIZE_DEPS \
 # ── Composer ───────────────────────────────────────────
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# ── PHP-FPM Config ────────────────────────────────────
+# ── PHP-FPM & Pool Config ─────────────────────────────
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 RUN echo "memory_limit=256M" >> "$PHP_INI_DIR/conf.d/custom.ini"
+
+# Increase PHP-FPM pool settings for 100-VU k6 load testing
+# Default Alpine PHP-FPM has pm.max_children=5 which bottlenecks under load.
+# With 3 app instances × 20 children = 60 concurrent PHP workers.
+RUN echo "pm.max_children = 20" >> /usr/local/etc/php-fpm.d/www.conf \
+ && echo "pm.start_servers = 5" >> /usr/local/etc/php-fpm.d/www.conf \
+ && echo "pm.min_spare_servers = 5" >> /usr/local/etc/php-fpm.d/www.conf \
+ && echo "pm.max_spare_servers = 10" >> /usr/local/etc/php-fpm.d/www.conf \
+ && echo "pm.max_requests = 500" >> /usr/local/etc/php-fpm.d/www.conf \
+ && echo "request_terminate_timeout = 60s" >> /usr/local/etc/php-fpm.d/www.conf
 
 # ── Application Setup ──────────────────────────────────
 WORKDIR /var/www/app

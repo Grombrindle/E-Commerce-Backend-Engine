@@ -9,7 +9,7 @@ class HandleOrderPlaced
 {
     public function handle(OrderPlaced $event): void
     {
-        // Example: update user's total orders count in cache
+
         Log::info("Order placed event fired for #{$event->order->order_number}");
     }
 }

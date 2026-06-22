@@ -17,18 +17,22 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+
         $middleware->api(prepend: [
+            \App\Http\Middleware\AddCorrelationId::class,
+            \App\Http\Middleware\PrometheusMiddleware::class,
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
 
         $middleware->alias([
-            'auth'          => \App\Http\Middleware\Authenticate::class,
-            'admin'         => \App\Http\Middleware\AdminMiddleware::class,
-            'throttle.order' => \App\Http\Middleware\ThrottleOrders::class,
+            'auth'            => \App\Http\Middleware\Authenticate::class,
+            'admin'           => \App\Http\Middleware\AdminMiddleware::class,
+            'throttle.order'  => \App\Http\Middleware\ThrottleOrders::class,
+            'correlation.id'  => \App\Http\Middleware\AddCorrelationId::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Auth exception
+
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
@@ -38,7 +42,6 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        // Validation exception
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
@@ -49,7 +52,6 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        // 404
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
@@ -59,7 +61,6 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        // Method not allowed
         $exceptions->render(function (MethodNotAllowedHttpException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
@@ -69,7 +70,6 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        // Generic
         $exceptions->render(function (\Throwable $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 $status = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500;

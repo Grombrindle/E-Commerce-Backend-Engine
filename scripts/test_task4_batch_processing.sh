@@ -1,19 +1,4 @@
 #!/usr/bin/env bash
-# ═══════════════════════════════════════════════════════════════════════
-# test_task4_batch_processing.sh
-# Task 4 — Chunked Batch Processing (Memory Safety)
-#
-# Tests:
-#   1. Seed test orders for a target date (via tinker stdin)
-#   2. Manually dispatch DispatchDailySalesBatchJob
-#   3. Verify DailySalesReport was created
-#   4. Verify queue batch metadata
-#   5. Clean up test data
-#
-# Prerequisites:
-#   - API running (http://localhost:8080)
-#   - Docker containers running for artisan commands
-# ═══════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -21,7 +6,6 @@ source "$SCRIPT_DIR/lib.sh"
 
 header "TASK 4 — CHUNKED BATCH PROCESSING (MEMORY SAFETY)"
 
-# ── 1. Setup ─────────────────────────────────────────────────────────
 header "1. Setup & Health Check"
 
 wait_for_api
@@ -38,81 +22,80 @@ else
     warn "  If Docker IS running, try: cd $PROJECT_ROOT && docker compose ps"
 fi
 
-# Determine app container
 APP_CONTAINER="app1"
 if [ "$DOCKER_AVAILABLE" = true ]; then
     APP_CONTAINER=$(docker_compose ps --services 2>/dev/null | grep -E '^app[0-9]' | head -1)
     [ -z "$APP_CONTAINER" ] && APP_CONTAINER="app1"
 fi
 
-# Helper: run tinker with piped PHP code
-# Usage: tinker_exec PHP_CODE [docker|local]
 tinker_exec() {
     local code="$1"
     local mode="${2:-auto}"
     local result
 
+    local clean_code
+    clean_code=$(echo "$code" | tr -s ' ' | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+
     if { [ "$mode" = "docker" ] || [ "$mode" = "auto" ]; } && [ "$DOCKER_AVAILABLE" = true ]; then
-        result=$(echo "$code" | docker_compose exec -T "$APP_CONTAINER" php artisan tinker 2>/dev/null | tail -1 || echo "")
+        result=$(docker_compose exec -T "$APP_CONTAINER" php artisan tinker --execute="$clean_code" 2>/dev/null | tail -1 || echo "")
+        if [ -z "$result" ]; then
+            result=$(echo "$code" | docker_compose exec -T "$APP_CONTAINER" php artisan tinker 2>/dev/null | grep -v "Psy" | grep -v "^$" | tail -1 || echo "")
+        fi
     else
-        result=$(echo "$code" | php artisan tinker 2>/dev/null | tail -1 || echo "")
+        result=$(php artisan tinker --execute="$clean_code" 2>/dev/null | tail -1 || echo "")
     fi
     echo "$result"
 }
 
-# ── 2. Seed Test Orders ─────────────────────────────────────────────
 header "2. Seeding Test Orders"
 
 step "Checking existing order count..."
-TINKER_CODE=$(cat << PHPEOF
-echo App\Models\Order::whereDate('created_at', '${TARGET_DATE}')->count();
-PHPEOF
-)
-COUNT_RESULT=$(tinker_exec "$TINKER_CODE")
+COUNT_RESULT=$(tinker_exec "echo App\\\\Models\\\\Order::whereDate('created_at', '${TARGET_DATE}')->count();")
 echo -e "    Orders for ${TARGET_DATE}: ${COUNT_RESULT:-0}"
 
-step "Creating a test order (unquoted heredoc = variable expansion works)..."
-TINKER_CODE=$(cat << PHPEOF
-\$user = App\Models\User::first();
-if (!\$user) { echo "NO_USER"; exit; }
-\$order = App\Models\Order::create([
-    "user_id" => \$user->id,
-    "status" => "completed",
-    "subtotal" => 100,
-    "tax" => 15,
-    "shipping_fee" => 9.99,
-    "discount" => 0,
-    "total" => 124.99,
-    "shipping_address" => json_encode(["street"=>"Test","city"=>"Test","country"=>"US","zip"=>"10001"]),
-    "billing_address" => json_encode(["street"=>"Test","city"=>"Test","country"=>"US","zip"=>"10001"]),
-    "created_at" => "${TARGET_DATE} 10:00:00",
-    "updated_at" => "${TARGET_DATE} 10:00:00",
+step "Creating a test order for ${TARGET_DATE}..."
+ORDER_CREATE_CODE="
+\$user = App\\\\Models\\\\User::first();
+if (!\$user) { echo \"NO_USER\"; exit; }
+\$order = App\\\\Models\\\\Order::create([
+    'user_id' => \$user->id,
+    'status' => 'completed',
+    'subtotal' => 100,
+    'tax' => 15,
+    'shipping_fee' => 9.99,
+    'discount' => 0,
+    'total' => 124.99,
+    'shipping_address' => json_encode(['street'=>'Test','city'=>'Test','country'=>'US','zip'=>'10001']),
+    'billing_address' => json_encode(['street'=>'Test','city'=>'Test','country'=>'US','zip'=>'10001']),
+    'created_at' => '${TARGET_DATE} 10:00:00',
+    'updated_at' => '${TARGET_DATE} 10:00:00',
 ]);
-echo "ORDER_CREATED:" . \$order->id;
-PHPEOF
-)
-RESULT=$(tinker_exec "$TINKER_CODE")
+echo \"ORDER_CREATED:\" . \$order->id;
+"
+RESULT=$(tinker_exec "$ORDER_CREATE_CODE")
 SEEDED_ORDER_ID=$(echo "$RESULT" | grep -o "ORDER_CREATED:[0-9]*" | grep -o "[0-9]*" || echo "")
 
 if [ -n "$SEEDED_ORDER_ID" ]; then
     ok "Test order created (ID: ${SEEDED_ORDER_ID}) for ${TARGET_DATE}."
 else
-    warn "Could not create test order. Result: ${RESULT:-(empty)}"
-    warn "Run seeder first: docker_compose exec app1 php artisan db:seed"
+    warn "Could not create test order via API. Trying API-based approach..."
+    TOKEN=$(register_user "batch@test.com" "Batch User" 2>/dev/null || login_user "batch@test.com" 2>/dev/null || echo "")
+    if [ -n "$TOKEN" ]; then
+        api_call GET /products
+        PRODUCT_ID=$(echo "$API_BODY" | parse_json_number "id")
+        if [ -n "$PRODUCT_ID" ] && [ "$PRODUCT_ID" != "null" ] && [ "$PRODUCT_ID" != "0" ]; then
+            add_to_cart "$PRODUCT_ID" 1 > /dev/null 2>&1
+            place_order > /dev/null 2>&1
+            ok "Order placed via API."
+        fi
+    fi
 fi
 
-# ── 3. Dispatch Batch Job ────────────────────────────────────────────
 header "3. ⚡ Dispatching Daily Sales Batch Job"
 
 step "Dispatching DispatchDailySalesBatchJob for ${TARGET_DATE}..."
-TINKER_CODE=$(cat << PHPEOF
-\App\Jobs\DispatchDailySalesBatchJob::dispatch('${TARGET_DATE}');
-echo "DISPATCHED_OK";
-PHPEOF
-)
-DISPATCH_RESULT=$(tinker_exec "$TINKER_CODE")
+DISPATCH_RESULT=$(tinker_exec "echo \"DISPATCHED_OK\"; App\\\\Jobs\\\\DispatchDailySalesBatchJob::dispatch('${TARGET_DATE}');")
 
-# Run queue worker to process the job
 step "Running queue worker (queue: default,batch-processing)..."
 if [ "$DOCKER_AVAILABLE" = true ]; then
     docker_compose exec -T "$APP_CONTAINER" php artisan queue:work --stop-when-empty --queue=default,batch-processing 2>/dev/null &
@@ -132,23 +115,18 @@ else
     warn "Dispatch result: ${DISPATCH_RESULT:-(no output)}"
 fi
 
-# ── 4. Verify Results ───────────────────────────────────────────────
 header "4. Verifying Batch Processing Results"
 
 step "Checking DailySalesReport table..."
-TINKER_CODE=$(cat << 'PHPEOF'
-$report = App\Models\DailySalesReport::where("date", "TARGET_DATE_PLACEHOLDER")->first();
-if ($report) {
-    echo "FOUND: revenue=" . $report->chunk_revenue . ", count=" . $report->chunk_count;
+REPORT_CODE="
+\$report = App\\\\Models\\\\DailySalesReport::where('date', '${TARGET_DATE}')->first();
+if (\$report) {
+    echo 'FOUND: revenue=' . \$report->chunk_revenue . ', count=' . \$report->chunk_count;
 } else {
-    echo "NOT_FOUND";
+    echo 'NOT_FOUND';
 }
-PHPEOF
-)
-# Replace placeholder with actual date
-TINKER_CODE="${TINKER_CODE/TARGET_DATE_PLACEHOLDER/${TARGET_DATE}}"
-
-REPORT_RESULT=$(tinker_exec "$TINKER_CODE")
+"
+REPORT_RESULT=$(tinker_exec "$REPORT_CODE")
 
 if echo "$REPORT_RESULT" | grep -q "FOUND:"; then
     ok "DailySalesReport: ${REPORT_RESULT} ✅"
@@ -160,16 +138,15 @@ else
 fi
 
 step "Checking job_batches table..."
-TINKER_CODE=$(cat << 'PHPEOF'
-$batch = DB::table("job_batches")->where("name", "like", "%Daily Sales%")->orderByDesc("created_at")->first();
-if ($batch) {
-    echo "BATCH: name=" . $batch->name . ", total=" . $batch->total_jobs . ", pending=" . $batch->pending_jobs . ", failed=" . $batch->failed_jobs;
+BATCHES_CODE="
+\$batch = DB::table('job_batches')->where('name', 'like', '%Daily Sales%')->orderByDesc('created_at')->first();
+if (\$batch) {
+    echo 'BATCH: name=' . \$batch->name . ', total=' . \$batch->total_jobs . ', pending=' . \$batch->pending_jobs . ', failed=' . \$batch->failed_jobs;
 } else {
-    echo "NO_BATCHES_FOUND";
+    echo 'NO_BATCHES_FOUND';
 }
-PHPEOF
-)
-BATCHES_RESULT=$(tinker_exec "$TINKER_CODE")
+"
+BATCHES_RESULT=$(tinker_exec "$BATCHES_CODE")
 
 if echo "$BATCHES_RESULT" | grep -q "BATCH:"; then
     echo -e "    ${BATCHES_RESULT}"
@@ -179,7 +156,6 @@ else
     warn "   ${BATCHES_RESULT}"
 fi
 
-# ── 5. Verify Schedule Configuration ────────────────────────────────
 header "5. Schedule Verification"
 
 step "Checking scheduled tasks include batch processing..."
@@ -192,24 +168,19 @@ else
     warn "Run: php artisan schedule:list | grep batch"
 fi
 
-# ── 6. Cleanup ──────────────────────────────────────────────────────
 header "6. Cleanup Test Data"
 
-TINKER_CODE=$(cat << 'PHPEOF'
-$order = App\Models\Order::find(SEEDED_ORDER_ID_PLACEHOLDER);
-if ($order) { $order->forceDelete(); echo "DELETED"; } else { echo "NOT_FOUND"; }
-PHPEOF
-)
-TINKER_CODE="${TINKER_CODE/SEEDED_ORDER_ID_PLACEHOLDER/${SEEDED_ORDER_ID:-0}}"
-
-if [ -n "$SEEDED_ORDER_ID" ]; then
-    CLEANUP_RESULT=$(tinker_exec "$TINKER_CODE")
+if [ -n "${SEEDED_ORDER_ID:-}" ] && [ "${SEEDED_ORDER_ID:-0}" != "0" ]; then
+    CLEANUP_CODE="
+    \$order = App\\\\Models\\\\Order::find(${SEEDED_ORDER_ID});
+    if (\$order) { \$order->forceDelete(); echo 'DELETED'; } else { echo 'NOT_FOUND'; }
+    "
+    CLEANUP_RESULT=$(tinker_exec "$CLEANUP_CODE")
     [ "$CLEANUP_RESULT" = "DELETED" ] && ok "Test order deleted." || warn "Cleanup: ${CLEANUP_RESULT:-empty}"
 fi
 
 ok "Test cleanup complete."
 
-# ── Summary ─────────────────────────────────────────────────────────
 print_summary "Task 4 — Chunked Batch Processing"
 
 echo -e "  ${GREEN}✓${NC} Batch job: DispatchDailySalesBatchJob dispatched"
